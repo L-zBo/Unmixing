@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+
+plt.rcParams["figure.dpi"] = 140
+
+
+def ensure_parent(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def plot_loss_curve(history: list[dict[str, float]], output_path: Path) -> None:
+    ensure_parent(output_path)
+    epochs = [item["epoch"] for item in history]
+    losses = [item["loss"] for item in history]
+    plt.figure(figsize=(6, 4))
+    plt.plot(epochs, losses, marker="o", linewidth=2)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training Loss")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_endmembers(axis: np.ndarray, endmembers: np.ndarray, anchors: np.ndarray | None, output_path: Path) -> None:
+    ensure_parent(output_path)
+    plt.figure(figsize=(10, 6))
+    for idx, curve in enumerate(endmembers[:3]):
+        plt.plot(axis, curve, linewidth=2, label=f"learned_endmember_{idx + 1}")
+    if anchors is not None and anchors.size > 0:
+        for idx, curve in enumerate(anchors[:3]):
+            plt.plot(axis, curve, linestyle="--", alpha=0.8, label=f"anchor_{idx + 1}")
+    plt.xlabel("Raman Shift (cm^-1)")
+    plt.ylabel("Intensity")
+    plt.title("Learned Endmembers vs Anchors")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_reconstruction_examples(
+    axis: np.ndarray,
+    traces: dict[str, list[list[float]]],
+    df: pd.DataFrame,
+    output_path: Path,
+    max_examples: int = 6,
+) -> None:
+    ensure_parent(output_path)
+    average_df = df[df["source_kind"] == "average"].copy()
+    if average_df.empty:
+        average_df = df.copy()
+    average_df = average_df.sort_values(["label", "family", "relative_path"]).head(max_examples)
+    if average_df.empty:
+        return
+
+    n_rows = len(average_df)
+    fig, axes = plt.subplots(n_rows, 1, figsize=(10, 2.4 * n_rows), sharex=True)
+    if n_rows == 1:
+        axes = [axes]
+    for ax, (_, row) in zip(axes, average_df.iterrows()):
+        idx = row.name
+        x = np.asarray(traces["x"][idx], dtype=float)
+        recon = np.asarray(traces["reconstruction"][idx], dtype=float)
+        ax.plot(axis, x, label="input", linewidth=1.5)
+        ax.plot(axis, recon, label="reconstruction", linewidth=1.5, alpha=0.8)
+        ax.set_title(f"{row['family']} | label={row['label']} | sample_{idx}")
+        ax.grid(alpha=0.25)
+    axes[0].legend(loc="upper right")
+    axes[-1].set_xlabel("Raman Shift (cm^-1)")
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_average_abundance(df: pd.DataFrame, output_path: Path, max_bars: int = 40) -> None:
+    ensure_parent(output_path)
+    average_df = df[df["source_kind"] == "average"].copy()
+    if average_df.empty:
+        return
+    abundance_cols = [col for col in df.columns if col.startswith("abundance_")]
+    average_df = average_df.sort_values(["family", "label", "relative_path"]).head(max_bars)
+    x = np.arange(len(average_df))
+    bottom = np.zeros(len(average_df))
+    plt.figure(figsize=(14, 5))
+    for col in abundance_cols[:3]:
+        values = average_df[col].to_numpy()
+        plt.bar(x, values, bottom=bottom, label=col)
+        bottom += values
+    plt.xlabel("Average spectra samples")
+    plt.ylabel("Estimated abundance")
+    plt.title("Average-spectra abundance composition")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_microplastic_score_boxplot(df: pd.DataFrame, output_path: Path) -> None:
+    ensure_parent(output_path)
+    labeled = df[df["label"] >= 0].copy()
+    if labeled.empty:
+        return
+    groups = []
+    labels = []
+    for level, level_label in [(0, "low"), (1, "medium"), (2, "high")]:
+        subset = labeled[labeled["label"] == level]["microplastic_score"].to_numpy()
+        if subset.size == 0:
+            continue
+        groups.append(subset)
+        labels.append(level_label)
+    if not groups:
+        return
+    plt.figure(figsize=(6, 4))
+    plt.boxplot(groups, tick_labels=labels, showfliers=False)
+    plt.ylabel("Estimated microplastic score")
+    plt.title("Microplastic score by weak label")
+    plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def save_experiment_summary(summary: dict[str, object], output_path: Path) -> None:
+    ensure_parent(output_path)
+    output_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")

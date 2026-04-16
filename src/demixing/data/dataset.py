@@ -15,10 +15,16 @@ class RamanSpectrumDataset(Dataset):
         manifest_csv: Path | None = None,
         use_normalized: bool = False,
         min_quality_tier: str | None = None,
+        allowed_source_kinds: set[str] | None = None,
+        allowed_families: set[str] | None = None,
+        require_weak_label: bool = False,
     ) -> None:
         self.data_root = Path(data_root)
         self.use_normalized = use_normalized
         self.samples: list[dict[str, object]] = []
+        self.allowed_source_kinds = allowed_source_kinds
+        self.allowed_families = allowed_families
+        self.require_weak_label = require_weak_label
 
         if manifest_csv is None:
             for csv_path in sorted(self.data_root.rglob("*.csv")):
@@ -31,6 +37,7 @@ class RamanSpectrumDataset(Dataset):
                         "weight": 1.0,
                         "label": -1,
                         "family": "unknown",
+                        "source_kind": "unknown",
                         "microplastic_mask": [0.0, 0.0, 0.0],
                         "weak_label_available": 0,
                     }
@@ -44,15 +51,25 @@ class RamanSpectrumDataset(Dataset):
                 tier = row["quality_tier"]
                 if min_rank[tier] > threshold:
                     continue
+                source_kind = row.get("source_kind", "unknown")
+                family = row.get("family", "unknown")
+                weak_label_available = int(row.get("weak_label_available", 0))
+                if self.allowed_source_kinds is not None and source_kind not in self.allowed_source_kinds:
+                    continue
+                if self.allowed_families is not None and family not in self.allowed_families:
+                    continue
+                if self.require_weak_label and weak_label_available != 1:
+                    continue
                 self.samples.append(
                     {
                         "relative_path": row["relative_path"],
                         "quality_tier": tier,
                         "weight": float(row["recommended_weight"]),
                         "label": int(row.get("concentration_label", -1)),
-                        "family": row.get("family", "unknown"),
+                        "family": family,
+                        "source_kind": source_kind,
                         "microplastic_mask": [float(v) for v in row.get("microplastic_mask", "0,0,0").split(",")],
-                        "weak_label_available": int(row.get("weak_label_available", 0)),
+                        "weak_label_available": weak_label_available,
                     }
                 )
 
@@ -80,6 +97,7 @@ class RamanSpectrumDataset(Dataset):
             "relative_path": str(sample["relative_path"]),
             "label": torch.tensor(int(sample["label"]), dtype=torch.long),
             "family": str(sample["family"]),
+            "source_kind": str(sample["source_kind"]),
             "microplastic_mask": torch.tensor(sample["microplastic_mask"], dtype=torch.float32),
             "weak_label_available": torch.tensor(int(sample["weak_label_available"]), dtype=torch.long),
         }

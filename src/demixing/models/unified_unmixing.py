@@ -44,9 +44,10 @@ class UnifiedRamanUnmixingNet(nn.Module):
             nn.Linear(config.hidden_dim // 2, 3),
         )
 
-        if config.mode == "fixed" and self.endmember_anchors.numel() > 0:
+        if config.mode in {"fixed", "semi", "weak", "full"} and self.endmember_anchors.numel() > 0:
             with torch.no_grad():
                 self.main_endmembers.copy_(self.endmember_anchors[: config.n_main_endmembers])
+        if config.mode == "fixed" and self.endmember_anchors.numel() > 0:
             self.main_endmembers.requires_grad_(False)
 
     def get_endmember_matrix(self) -> Tensor:

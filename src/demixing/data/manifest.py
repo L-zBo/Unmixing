@@ -5,6 +5,31 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+PP_PE_STARCH = "PP+PE+\u6dc0\u7c89/"
+PP_STARCH = "PP+\u7389\u7c73\u6dc0\u7c89/"
+PE_STARCH = "PE+\u7389\u7c73\u6dc0\u7c89/"
+PURE_PP = "pp\u7eaf\u8c31/"
+PURE_PE = "pe\u7eaf\u8c31/"
+PURE_STARCH = "\u6dc0\u7c89\u7eaf\u8c31/"
+
+AVG_TOKEN = "/\u5e73\u5747\u5149\u8c31"
+PURE_TOKEN = "\u7eaf\u8c31/"
+
+LOW_TOKENS = (
+    "\u4f4ePP+\u4f4ePE+\u6dc0\u7c89",
+    "\u4f4e\u6d53\u5ea6",
+    "\u4f4ePE+\u6dc0\u7c89",
+    "\u4f4e PP+\u6dc0\u7c89",
+)
+MEDIUM_TOKENS = ("\u4e2dPP+\u4e2dPE+\u6dc0\u7c89",)
+HIGH_TOKENS = (
+    "\u9ad8PP+\u9ad8PE+\u6dc0\u7c89",
+    "\u9ad8\u6d53\u5ea6",
+    "\u9ad8PE+\u6dc0\u7c89",
+    "\u9ad8 PP+\u6dc0\u7c89",
+)
+
+
 @dataclass(frozen=True)
 class SampleMetadata:
     relative_path: str
@@ -19,35 +44,39 @@ class SampleMetadata:
 
 
 def infer_family(relative_path: str) -> str:
-    if relative_path.startswith("PP+PE+淀粉/"):
+    if relative_path.startswith(PP_PE_STARCH):
         return "pp_pe_starch"
-    if relative_path.startswith("PP+玉米淀粉/"):
+    if relative_path.startswith(PP_STARCH):
         return "pp_starch"
-    if relative_path.startswith("PE+玉米淀粉/"):
+    if relative_path.startswith(PE_STARCH):
         return "pe_starch"
-    if relative_path.startswith("pp纯谱/"):
+    if relative_path.startswith(PURE_PP):
         return "pure_pp"
-    if relative_path.startswith("pe纯谱/"):
+    if relative_path.startswith(PURE_PE):
         return "pure_pe"
-    if relative_path.startswith("淀粉纯谱/"):
+    if relative_path.startswith(PURE_STARCH):
         return "pure_starch"
     return "unknown"
 
 
 def infer_source_kind(relative_path: str) -> str:
-    if "/平均光谱" in relative_path:
+    if AVG_TOKEN in relative_path:
         return "average"
-    if "纯谱/" in relative_path:
+    if PURE_TOKEN in relative_path:
         return "pure"
     return "raw"
 
 
+def _contains_any(relative_path: str, tokens: tuple[str, ...]) -> bool:
+    return any(token in relative_path for token in tokens)
+
+
 def infer_concentration(relative_path: str) -> tuple[str, int, float | None, float | None, bool]:
-    if "中PP+中PE+淀粉" in relative_path:
+    if _contains_any(relative_path, MEDIUM_TOKENS):
         return "medium", 1, 0.4, 0.7, True
-    if "低PP+低PE+淀粉" in relative_path or "低浓度" in relative_path or "低PE+淀粉" in relative_path or "低 PP+淀粉" in relative_path:
+    if _contains_any(relative_path, LOW_TOKENS):
         return "low", 0, 0.1, 0.4, True
-    if "高PP+高PE+淀粉" in relative_path or "高浓度" in relative_path or "高PE+淀粉" in relative_path or "高 PP+淀粉" in relative_path:
+    if _contains_any(relative_path, HIGH_TOKENS):
         return "high", 2, 0.8, 1.0, True
     return "unlabeled", -1, None, None, False
 
