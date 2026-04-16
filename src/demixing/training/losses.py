@@ -27,5 +27,8 @@ def smoothness_penalty(endmembers: Tensor, weight: float = 1e-4) -> Tensor:
 def ordinal_label_loss(label_logits: Tensor, labels: Tensor | None, weight: float = 1.0) -> Tensor:
     if labels is None:
         return label_logits.new_tensor(0.0)
+    valid_mask = labels >= 0
+    if not torch.any(valid_mask):
+        return label_logits.new_tensor(0.0)
     criterion = nn.CrossEntropyLoss()
-    return weight * criterion(label_logits, labels)
+    return weight * criterion(label_logits[valid_mask], labels[valid_mask])

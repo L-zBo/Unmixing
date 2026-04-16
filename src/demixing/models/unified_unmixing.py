@@ -39,7 +39,7 @@ class UnifiedRamanUnmixingNet(nn.Module):
             self.register_buffer("endmember_anchors", endmember_anchors.float())
 
         self.label_head = nn.Sequential(
-            nn.Linear(self.n_total_endmembers, config.hidden_dim // 2),
+            nn.Linear(self.n_total_endmembers + config.n_main_endmembers, config.hidden_dim // 2),
             nn.GELU(),
             nn.Linear(config.hidden_dim // 2, 3),
         )
@@ -54,15 +54,24 @@ class UnifiedRamanUnmixingNet(nn.Module):
         residual = torch.relu(self.residual_endmembers)
         return torch.cat([main, residual], dim=0)
 
-    def forward(self, x: Tensor) -> dict[str, Tensor]:
+    def forward(self, x: Tensor, microplastic_mask: Tensor | None = None) -> dict[str, Tensor]:
         abundance_logits = self.encoder(x)
         abundances = torch.softmax(abundance_logits, dim=-1)
         endmembers = self.get_endmember_matrix()
         reconstruction = abundances @ endmembers
-        label_logits = self.label_head(abundances)
+        if microplastic_mask is None:
+            microplastic_mask = torch.zeros(
+                (x.shape[0], self.config.n_main_endmembers),
+                dtype=x.dtype,
+                device=x.device,
+            )
+        label_features = torch.cat([abundances, microplastic_mask], dim=-1)
+        label_logits = self.label_head(label_features)
+        microplastic_score = torch.sum(abundances[:, : self.config.n_main_endmembers] * microplastic_mask, dim=-1, keepdim=True)
         return {
             "reconstruction": reconstruction,
             "abundances": abundances,
             "endmembers": endmembers,
             "label_logits": label_logits,
+            "microplastic_score": microplastic_score,
         }

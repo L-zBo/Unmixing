@@ -44,8 +44,11 @@ def train_model(
             labels = batch.get("label")
             if labels is not None:
                 labels = labels.to(config.device)
+            microplastic_mask = batch.get("microplastic_mask")
+            if microplastic_mask is not None:
+                microplastic_mask = microplastic_mask.to(config.device)
 
-            outputs = model(x)
+            outputs = model(x, microplastic_mask=microplastic_mask)
             recon = outputs["reconstruction"]
             endmembers = outputs["endmembers"]
 

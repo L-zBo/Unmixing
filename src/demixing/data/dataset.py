@@ -24,7 +24,17 @@ class RamanSpectrumDataset(Dataset):
             for csv_path in sorted(self.data_root.rglob("*.csv")):
                 if "_reports" in csv_path.parts:
                     continue
-                self.samples.append({"relative_path": csv_path.relative_to(self.data_root).as_posix(), "quality_tier": "A", "weight": 1.0})
+                self.samples.append(
+                    {
+                        "relative_path": csv_path.relative_to(self.data_root).as_posix(),
+                        "quality_tier": "A",
+                        "weight": 1.0,
+                        "label": -1,
+                        "family": "unknown",
+                        "microplastic_mask": [0.0, 0.0, 0.0],
+                        "weak_label_available": 0,
+                    }
+                )
         else:
             min_rank = {"A": 0, "B": 1, "C": 2}
             threshold = min_rank.get(min_quality_tier or "C", 2)
@@ -39,6 +49,10 @@ class RamanSpectrumDataset(Dataset):
                         "relative_path": row["relative_path"],
                         "quality_tier": tier,
                         "weight": float(row["recommended_weight"]),
+                        "label": int(row.get("concentration_label", -1)),
+                        "family": row.get("family", "unknown"),
+                        "microplastic_mask": [float(v) for v in row.get("microplastic_mask", "0,0,0").split(",")],
+                        "weak_label_available": int(row.get("weak_label_available", 0)),
                     }
                 )
 
@@ -64,4 +78,8 @@ class RamanSpectrumDataset(Dataset):
             "quality_tier": str(sample["quality_tier"]),
             "weight": float(sample["weight"]),
             "relative_path": str(sample["relative_path"]),
+            "label": torch.tensor(int(sample["label"]), dtype=torch.long),
+            "family": str(sample["family"]),
+            "microplastic_mask": torch.tensor(sample["microplastic_mask"], dtype=torch.float32),
+            "weak_label_available": torch.tensor(int(sample["weak_label_available"]), dtype=torch.long),
         }
