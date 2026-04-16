@@ -6,6 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import confusion_matrix
 
 
 plt.rcParams["figure.dpi"] = 140
@@ -209,6 +210,34 @@ def plot_accuracy_comparison(
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
+
+
+def plot_confusion_matrix(
+    df: pd.DataFrame,
+    output_path: Path,
+    title: str = "Confusion Matrix",
+) -> None:
+    ensure_parent(output_path)
+    if df.empty:
+        return
+    labels = [0, 1, 2]
+    cm = confusion_matrix(df["label"], df["pred_label"], labels=labels)
+    fig, ax = plt.subplots(figsize=(5, 4))
+    im = ax.imshow(cm, cmap="Blues")
+    ax.set_xticks(range(len(labels)))
+    ax.set_yticks(range(len(labels)))
+    ax.set_xticklabels(["low", "medium", "high"])
+    ax.set_yticklabels(["low", "medium", "high"])
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("True")
+    ax.set_title(title)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, str(cm[i, j]), ha="center", va="center", color="black")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
 
 
 def save_experiment_summary(summary: dict[str, object], output_path: Path) -> None:
