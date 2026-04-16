@@ -55,8 +55,18 @@ class UnifiedRamanUnmixingNet(nn.Module):
         residual = torch.relu(self.residual_endmembers)
         return torch.cat([main, residual], dim=0)
 
-    def forward(self, x: Tensor, microplastic_mask: Tensor | None = None) -> dict[str, Tensor]:
+    def forward(
+        self,
+        x: Tensor,
+        microplastic_mask: Tensor | None = None,
+        allowed_main_mask: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         abundance_logits = self.encoder(x)
+        if allowed_main_mask is not None:
+            main_logits = abundance_logits[:, : self.config.n_main_endmembers]
+            invalid_mask = allowed_main_mask[:, : self.config.n_main_endmembers] <= 0
+            main_logits = main_logits.masked_fill(invalid_mask, -1e9)
+            abundance_logits = torch.cat([main_logits, abundance_logits[:, self.config.n_main_endmembers :]], dim=-1)
         abundances = torch.softmax(abundance_logits, dim=-1)
         endmembers = self.get_endmember_matrix()
         reconstruction = abundances @ endmembers

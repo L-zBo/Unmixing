@@ -19,12 +19,16 @@ def plot_loss_curve(history: list[dict[str, float]], output_path: Path) -> None:
     ensure_parent(output_path)
     epochs = [item["epoch"] for item in history]
     losses = [item["loss"] for item in history]
+    val_losses = [item.get("val_loss") for item in history]
     plt.figure(figsize=(6, 4))
-    plt.plot(epochs, losses, marker="o", linewidth=2)
+    plt.plot(epochs, losses, marker="o", linewidth=2, label="train")
+    if any(value is not None for value in val_losses):
+        plt.plot(epochs, val_losses, marker="s", linewidth=2, label="val")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Training Loss")
     plt.grid(alpha=0.3)
+    plt.legend()
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
@@ -124,6 +128,84 @@ def plot_microplastic_score_boxplot(df: pd.DataFrame, output_path: Path) -> None
     plt.ylabel("Estimated microplastic score")
     plt.title("Microplastic score by weak label")
     plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_model_vs_baseline_scores(
+    model_df: pd.DataFrame,
+    baseline_df: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    ensure_parent(output_path)
+    labels = ["low", "medium", "high"]
+    x = np.arange(len(labels))
+    width = 0.35
+
+    def means(df: pd.DataFrame) -> list[float]:
+        out = []
+        for label in [0, 1, 2]:
+            subset = df[df["label"] == label]["microplastic_score"]
+            out.append(float(subset.mean()) if not subset.empty else 0.0)
+        return out
+
+    model_means = means(model_df)
+    baseline_means = means(baseline_df)
+
+    plt.figure(figsize=(7, 4))
+    plt.bar(x - width / 2, model_means, width=width, label="model")
+    plt.bar(x + width / 2, baseline_means, width=width, label="baseline")
+    plt.xticks(x, labels)
+    plt.ylabel("Mean microplastic score")
+    plt.title("Model vs baseline by weak label")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_family_grouped_scores(df: pd.DataFrame, output_path: Path) -> None:
+    ensure_parent(output_path)
+    average_df = df[df["source_kind"] == "average"].copy()
+    if average_df.empty:
+        return
+    summary = average_df.groupby("family")["microplastic_score"].mean().sort_index()
+    plt.figure(figsize=(7, 4))
+    plt.bar(summary.index, summary.values)
+    plt.ylabel("Mean microplastic score")
+    plt.title("Average microplastic score by family")
+    plt.xticks(rotation=15)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_accuracy_comparison(
+    model_df: pd.DataFrame,
+    baseline_df: pd.DataFrame,
+    output_path: Path,
+) -> None:
+    ensure_parent(output_path)
+    families = sorted(set(model_df["family"]).intersection(set(baseline_df["family"])))
+    model_acc = []
+    baseline_acc = []
+    for family in families:
+        model_subset = model_df[model_df["family"] == family]
+        baseline_subset = baseline_df[baseline_df["family"] == family]
+        model_acc.append(float((model_subset["label"] == model_subset["pred_label"]).mean()) if not model_subset.empty else 0.0)
+        baseline_acc.append(float((baseline_subset["label"] == baseline_subset["pred_label"]).mean()) if not baseline_subset.empty else 0.0)
+
+    x = np.arange(len(families))
+    width = 0.35
+    plt.figure(figsize=(8, 4))
+    plt.bar(x - width / 2, model_acc, width=width, label="model")
+    plt.bar(x + width / 2, baseline_acc, width=width, label="baseline")
+    plt.xticks(x, families, rotation=15)
+    plt.ylim(0, 1)
+    plt.ylabel("Accuracy")
+    plt.title("Validation accuracy by family")
+    plt.legend()
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()

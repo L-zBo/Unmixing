@@ -18,6 +18,7 @@ class RamanSpectrumDataset(Dataset):
         allowed_source_kinds: set[str] | None = None,
         allowed_families: set[str] | None = None,
         require_weak_label: bool = False,
+        allowed_group_ids: set[str] | None = None,
     ) -> None:
         self.data_root = Path(data_root)
         self.use_normalized = use_normalized
@@ -25,6 +26,7 @@ class RamanSpectrumDataset(Dataset):
         self.allowed_source_kinds = allowed_source_kinds
         self.allowed_families = allowed_families
         self.require_weak_label = require_weak_label
+        self.allowed_group_ids = allowed_group_ids
 
         if manifest_csv is None:
             for csv_path in sorted(self.data_root.rglob("*.csv")):
@@ -60,6 +62,9 @@ class RamanSpectrumDataset(Dataset):
                     continue
                 if self.require_weak_label and weak_label_available != 1:
                     continue
+                group_id = row.get("sample_group_id", row["relative_path"])
+                if self.allowed_group_ids is not None and group_id not in self.allowed_group_ids:
+                    continue
                 self.samples.append(
                     {
                         "relative_path": row["relative_path"],
@@ -69,6 +74,8 @@ class RamanSpectrumDataset(Dataset):
                         "family": family,
                         "source_kind": source_kind,
                         "microplastic_mask": [float(v) for v in row.get("microplastic_mask", "0,0,0").split(",")],
+                        "allowed_main_mask": [float(v) for v in row.get("allowed_main_mask", "1,1,1").split(",")],
+                        "sample_group_id": group_id,
                         "weak_label_available": weak_label_available,
                     }
                 )
@@ -99,5 +106,7 @@ class RamanSpectrumDataset(Dataset):
             "family": str(sample["family"]),
             "source_kind": str(sample["source_kind"]),
             "microplastic_mask": torch.tensor(sample["microplastic_mask"], dtype=torch.float32),
+            "allowed_main_mask": torch.tensor(sample["allowed_main_mask"], dtype=torch.float32),
+            "sample_group_id": str(sample["sample_group_id"]),
             "weak_label_available": torch.tensor(int(sample["weak_label_available"]), dtype=torch.long),
         }

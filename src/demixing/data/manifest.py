@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +42,8 @@ class SampleMetadata:
     concentration_max_pct: float | None
     weak_label_available: bool
     microplastic_mask: tuple[int, int, int]
+    allowed_main_mask: tuple[int, int, int]
+    sample_group_id: str
 
 
 def infer_family(relative_path: str) -> str:
@@ -97,13 +100,51 @@ def infer_microplastic_mask(family: str) -> tuple[int, int, int]:
     return (0, 0, 0)
 
 
+def infer_allowed_main_mask(family: str) -> tuple[int, int, int]:
+    if family == "pp_starch":
+        return (1, 0, 1)
+    if family == "pe_starch":
+        return (0, 1, 1)
+    if family == "pp_pe_starch":
+        return (1, 1, 1)
+    if family == "pure_pp":
+        return (1, 0, 0)
+    if family == "pure_pe":
+        return (0, 1, 0)
+    if family == "pure_starch":
+        return (0, 0, 1)
+    return (1, 1, 1)
+
+
+def infer_sample_group_id(relative_path: str, source_kind: str) -> str:
+    parts = relative_path.split("/")
+    family = infer_family(relative_path)
+    target_text = ""
+    if source_kind == "raw" and len(parts) >= 3:
+        target_text = parts[2]
+    elif source_kind == "average":
+        target_text = Path(parts[-1]).stem
+    if target_text:
+        match = re.match(r"(\d+)", target_text)
+        if match:
+            return f"{family}|{int(match.group(1)):03d}"
+        match = re.search(r"样本_(\d+)", target_text)
+        if match:
+            return f"{family}|{int(match.group(1)):03d}"
+    if source_kind == "pure" and len(parts) >= 2:
+        return "/".join(parts[:2])
+    return relative_path
+
+
 def infer_metadata(relative_path: str) -> SampleMetadata:
     family = infer_family(relative_path)
     source_kind = infer_source_kind(relative_path)
     level, label, min_pct, max_pct, available = infer_concentration(relative_path)
     mask = infer_microplastic_mask(family)
+    allowed_mask = infer_allowed_main_mask(family)
     if source_kind == "pure":
         level, label, min_pct, max_pct, available = "unlabeled", -1, None, None, False
+    sample_group_id = infer_sample_group_id(relative_path, source_kind)
     return SampleMetadata(
         relative_path=relative_path,
         family=family,
@@ -114,6 +155,8 @@ def infer_metadata(relative_path: str) -> SampleMetadata:
         concentration_max_pct=max_pct,
         weak_label_available=available,
         microplastic_mask=mask,
+        allowed_main_mask=allowed_mask,
+        sample_group_id=sample_group_id,
     )
 
 
@@ -138,6 +181,8 @@ def build_sample_manifest(quality_manifest_csv: Path, output_csv: Path) -> dict[
                 "concentration_max_pct",
                 "weak_label_available",
                 "microplastic_mask",
+                "allowed_main_mask",
+                "sample_group_id",
                 "converted_from_wavelength",
             ]
         )
@@ -157,6 +202,8 @@ def build_sample_manifest(quality_manifest_csv: Path, output_csv: Path) -> dict[
                     "" if meta.concentration_max_pct is None else meta.concentration_max_pct,
                     int(meta.weak_label_available),
                     ",".join(str(v) for v in meta.microplastic_mask),
+                    ",".join(str(v) for v in meta.allowed_main_mask),
+                    meta.sample_group_id,
                     row["converted_from_wavelength"],
                 ]
             )
