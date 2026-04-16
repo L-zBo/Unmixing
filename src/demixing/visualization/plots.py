@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -235,6 +236,42 @@ def plot_confusion_matrix(
         for j in range(cm.shape[1]):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center", color="black")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def plot_prediction_map(df: pd.DataFrame, output_path: Path, title: str = "Prediction Map") -> None:
+    ensure_parent(output_path)
+    if df.empty:
+        return
+    coords = []
+    for rel in df["relative_path"]:
+        name = Path(rel).name
+        match_x = re.search(r"-X(\d+)-", name)
+        match_y = re.search(r"-Y(\d+)-", name)
+        if match_x is None or match_y is None:
+            coords.append((None, None))
+        else:
+            coords.append((int(match_x.group(1)), int(match_y.group(1))))
+    coord_df = df.copy()
+    coord_df["x_idx"] = [x for x, _ in coords]
+    coord_df["y_idx"] = [y for _, y in coords]
+    coord_df = coord_df.dropna(subset=["x_idx", "y_idx"]).copy()
+    if coord_df.empty:
+        return
+    coord_df["x_idx"] = coord_df["x_idx"].astype(int)
+    coord_df["y_idx"] = coord_df["y_idx"].astype(int)
+    grid = coord_df.pivot_table(index="y_idx", columns="x_idx", values="pred_label", aggfunc="first")
+    grid = grid.sort_index(ascending=False)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = ax.imshow(grid.to_numpy(), cmap="viridis", vmin=0, vmax=2)
+    ax.set_title(title)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_ticks([0, 1, 2])
+    cbar.set_ticklabels(["low", "medium", "high"])
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)

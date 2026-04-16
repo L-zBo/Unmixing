@@ -9,6 +9,8 @@ from pathlib import Path
 PP_PE_STARCH = "PP+PE+\u6dc0\u7c89/"
 PP_STARCH = "PP+\u7389\u7c73\u6dc0\u7c89/"
 PE_STARCH = "PE+\u7389\u7c73\u6dc0\u7c89/"
+PP_STARCH_TEST = "PP+\u6dc0\u7c89/"
+PE_STARCH_TEST = "PE+\u6dc0\u7c89/"
 PURE_PP = "pp\u7eaf\u8c31/"
 PURE_PE = "pe\u7eaf\u8c31/"
 PURE_STARCH = "\u6dc0\u7c89\u7eaf\u8c31/"
@@ -49,9 +51,9 @@ class SampleMetadata:
 def infer_family(relative_path: str) -> str:
     if relative_path.startswith(PP_PE_STARCH):
         return "pp_pe_starch"
-    if relative_path.startswith(PP_STARCH):
+    if relative_path.startswith(PP_STARCH) or relative_path.startswith(PP_STARCH_TEST):
         return "pp_starch"
-    if relative_path.startswith(PE_STARCH):
+    if relative_path.startswith(PE_STARCH) or relative_path.startswith(PE_STARCH_TEST):
         return "pe_starch"
     if relative_path.startswith(PURE_PP):
         return "pure_pp"
