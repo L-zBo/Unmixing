@@ -118,9 +118,8 @@ def infer_allowed_main_mask(family: str) -> tuple[int, int, int]:
     return (1, 1, 1)
 
 
-def infer_sample_group_id(relative_path: str, source_kind: str) -> str:
+def infer_sample_group_id(relative_path: str, source_kind: str, family: str, concentration_level: str) -> str:
     parts = relative_path.split("/")
-    family = infer_family(relative_path)
     target_text = ""
     if source_kind == "raw" and len(parts) >= 3:
         target_text = parts[2]
@@ -129,10 +128,10 @@ def infer_sample_group_id(relative_path: str, source_kind: str) -> str:
     if target_text:
         match = re.match(r"(\d+)", target_text)
         if match:
-            return f"{family}|{int(match.group(1)):03d}"
+            return f"{family}|{concentration_level}|{int(match.group(1)):03d}"
         match = re.search(r"样本_(\d+)", target_text)
         if match:
-            return f"{family}|{int(match.group(1)):03d}"
+            return f"{family}|{concentration_level}|{int(match.group(1)):03d}"
     if source_kind == "pure" and len(parts) >= 2:
         return "/".join(parts[:2])
     return relative_path
@@ -146,7 +145,7 @@ def infer_metadata(relative_path: str) -> SampleMetadata:
     allowed_mask = infer_allowed_main_mask(family)
     if source_kind == "pure":
         level, label, min_pct, max_pct, available = "unlabeled", -1, None, None, False
-    sample_group_id = infer_sample_group_id(relative_path, source_kind)
+    sample_group_id = infer_sample_group_id(relative_path, source_kind, family, level)
     return SampleMetadata(
         relative_path=relative_path,
         family=family,

@@ -39,6 +39,9 @@ def main() -> None:
     result = run_family_specific_svc(filtered, data_root, split_col="split", feature_mode="both")
     save_predictions(result.predictions, report_dir / "test_predictions.csv")
     plot_confusion_matrix(result.predictions, figure_dir / "confusion_matrix.png", title="Family-specific SVC confusion matrix")
+    if result.group_vote_predictions is not None:
+        save_predictions(result.group_vote_predictions, report_dir / "test_group_vote_predictions.csv")
+        plot_confusion_matrix(result.group_vote_predictions, figure_dir / "group_confusion_matrix.png", title="Group-vote confusion matrix")
 
     summary = {
         "experiment": "formal_v3_family_svc",
@@ -47,6 +50,8 @@ def main() -> None:
         "train_samples": int((filtered["split"] == "train").sum()),
         "test_samples": int((filtered["split"] == "test").sum()),
         "overall_accuracy": result.overall_accuracy,
+        "group_accuracy": result.group_accuracy,
+        "group_vote_expanded_accuracy": result.group_vote_expanded_accuracy,
         "family_accuracy": result.family_accuracy,
         "label_distribution_test": {
             str(k): int(v)

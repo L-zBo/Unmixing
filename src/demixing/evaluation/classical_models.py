@@ -17,6 +17,9 @@ class FamilySpecificSVCResult:
     predictions: pd.DataFrame
     family_accuracy: dict[str, float]
     overall_accuracy: float
+    group_vote_predictions: pd.DataFrame | None = None
+    group_accuracy: float | None = None
+    group_vote_expanded_accuracy: float | None = None
 
 
 def load_spectrum_features(data_root: Path, relative_path: str, feature_mode: str = "both") -> np.ndarray:
@@ -85,8 +88,33 @@ def run_family_specific_svc(
 
     predictions = pd.DataFrame(rows).sort_values(["family", "relative_path"]).reset_index(drop=True)
     overall_accuracy = float(np.mean(predictions["label"] == predictions["pred_label"])) if not predictions.empty else 0.0
+
+    group_vote_predictions = None
+    group_accuracy = None
+    group_vote_expanded_accuracy = None
+    if not predictions.empty:
+        group_vote_predictions = (
+            predictions.groupby(["family", "sample_group_id"], as_index=False)
+            .agg(
+                label=("label", "first"),
+                pred_label=("pred_label", lambda s: int(pd.Series(s).mode().iloc[0])),
+                n_spectra=("pred_label", "size"),
+            )
+            .sort_values(["family", "sample_group_id"])
+            .reset_index(drop=True)
+        )
+        group_accuracy = float(np.mean(group_vote_predictions["label"] == group_vote_predictions["pred_label"]))
+        expanded_true: list[int] = []
+        expanded_pred: list[int] = []
+        for _, row in group_vote_predictions.iterrows():
+            expanded_true.extend([int(row["label"])] * int(row["n_spectra"]))
+            expanded_pred.extend([int(row["pred_label"])] * int(row["n_spectra"]))
+        group_vote_expanded_accuracy = float(np.mean(np.asarray(expanded_true) == np.asarray(expanded_pred)))
     return FamilySpecificSVCResult(
         predictions=predictions,
         family_accuracy=family_accuracy,
         overall_accuracy=overall_accuracy,
+        group_vote_predictions=group_vote_predictions,
+        group_accuracy=group_accuracy,
+        group_vote_expanded_accuracy=group_vote_expanded_accuracy,
     )
