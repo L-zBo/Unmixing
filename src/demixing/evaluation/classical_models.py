@@ -27,10 +27,19 @@ def load_spectrum_features(data_root: Path, relative_path: str, feature_mode: st
         rows = list(csv.DictReader(handle))
     corrected = np.asarray([float(row["Intensity_corrected"]) for row in rows], dtype=np.float32)
     normalized = np.asarray([float(row["Intensity_norm_max"]) for row in rows], dtype=np.float32)
+    derivative = np.diff(normalized, prepend=normalized[0]).astype(np.float32)
+    fingerprint = slice(50, 450)
+    ch_stretch = slice(750, 900)
     if feature_mode == "corrected":
         return corrected
     if feature_mode == "normalized":
         return normalized
+    if feature_mode == "norm+deriv":
+        return np.concatenate([normalized[fingerprint], derivative[fingerprint]], dtype=np.float32)
+    if feature_mode == "fingerprint":
+        return normalized[fingerprint]
+    if feature_mode == "fingerprint+ch":
+        return np.concatenate([normalized[fingerprint], normalized[ch_stretch]], dtype=np.float32)
     return np.concatenate([corrected, normalized], dtype=np.float32)
 
 

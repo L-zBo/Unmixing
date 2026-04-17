@@ -213,6 +213,28 @@ def plot_accuracy_comparison(
     plt.close()
 
 
+def plot_family_accuracy(
+    family_accuracy: dict[str, float],
+    output_path: Path,
+    title: str = "Family accuracy",
+) -> None:
+    ensure_parent(output_path)
+    if not family_accuracy:
+        return
+    items = sorted(family_accuracy.items())
+    labels = [key for key, _ in items]
+    values = [value for _, value in items]
+    plt.figure(figsize=(7, 4))
+    plt.bar(labels, values)
+    plt.ylim(0, 1)
+    plt.ylabel("Accuracy")
+    plt.title(title)
+    plt.xticks(rotation=15)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
 def plot_confusion_matrix(
     df: pd.DataFrame,
     output_path: Path,

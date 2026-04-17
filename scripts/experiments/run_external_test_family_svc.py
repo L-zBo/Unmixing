@@ -114,6 +114,24 @@ def main() -> None:
     predictions = pd.DataFrame(rows).sort_values(["family", "relative_path"]).reset_index(drop=True)
     save_predictions(predictions, report_dir / "external_test_predictions.csv")
 
+    group_rows = []
+    for family, subset in predictions.groupby("family"):
+        dominant = int(subset["pred_label"].mode().iloc[0])
+        counts = subset["pred_label"].value_counts().sort_index().to_dict()
+        group_rows.append(
+            {
+                "family": family,
+                "group_id": str(subset["sample_group_id"].iloc[0]) if "sample_group_id" in subset else family,
+                "dominant_pred_label": dominant,
+                "n_spectra": int(len(subset)),
+                "count_low": int(counts.get(0, 0)),
+                "count_medium": int(counts.get(1, 0)),
+                "count_high": int(counts.get(2, 0)),
+            }
+        )
+    group_summary = pd.DataFrame(group_rows).sort_values("family").reset_index(drop=True)
+    save_predictions(group_summary, report_dir / "external_test_group_summary.csv")
+
     for family, subset in predictions.groupby("family"):
         plot_prediction_map(subset, figure_dir / f"{family}_prediction_map.png", title=f"{family} external test prediction map")
 
@@ -121,6 +139,7 @@ def main() -> None:
         "experiment": "external_test_family_svc_v1",
         "families": family_counts,
         "num_predictions": int(len(predictions)),
+        "num_groups": int(len(group_summary)),
     }
     save_experiment_summary(summary, report_dir / "summary.json")
     print(summary)
