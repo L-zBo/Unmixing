@@ -25,7 +25,7 @@ Unmixing/
 │   ├── data/                       # 数据预处理与合成数据生成
 │   ├── train/                      # 训练入口
 │   └── experiments/                # 正式实验脚本（按路线分组）
-│       ├── nnls_unmixing/          # 主线：v6-v12
+│       ├── nnls_unmixing/          # 主线：按用途命名的NNLS解混实验入口
 │       └── legacy_classification/  # 旧路线：v1-v5、external_test
 ├── dataset/                        # 原始数据（git 忽略，只读）
 └── outputs/                        # 实验产物（git 忽略）
@@ -38,7 +38,7 @@ Unmixing/
 
 | 路线 | 入口脚本 | 详细说明 |
 | --- | --- | --- |
-| NNLS 解混（主线） | `scripts/experiments/nnls_unmixing/run_formal_v6` ~ `v12` | [docs/nnls_unmixing_flow.md](docs/nnls_unmixing_flow.md) |
+| NNLS 解混（主线） | `scripts/experiments/nnls_unmixing/run_real_unmixing_single.py`等用途化脚本 | [docs/nnls_unmixing_flow.md](docs/nnls_unmixing_flow.md) |
 | 家族分类基线（历史） | `scripts/experiments/legacy_classification/run_formal_v1` ~ `v5`、`run_external_test_family_svc` | [docs/legacy_classification_flow.md](docs/legacy_classification_flow.md) |
 
 ## 核心模块速查
