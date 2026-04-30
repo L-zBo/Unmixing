@@ -13,19 +13,19 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from demixing.data.group_dataset import GroupPCAProjector, SpatialGroupDataset
+from demixing.legacy.data.group_dataset import GroupPCAProjector, SpatialGroupDataset
 from demixing.data.manifest import build_sample_manifest
-from demixing.data.splits import assign_group_split
-from demixing.evaluation.inference import save_predictions
-from demixing.models.spatial_cnn import SpatialCNNConfig, SpatialGroupClassifier
-from demixing.training.spatial_trainer import (
+from demixing.legacy.data.splits import assign_group_split
+from demixing.legacy.evaluation.inference import save_predictions
+from demixing.legacy.models.spatial_cnn import SpatialCNNConfig, SpatialGroupClassifier
+from demixing.legacy.training.spatial_trainer import (
     SpatialTrainConfig,
     collate_spatial_batch,
     evaluate_spatial_model,
     predict_spatial_groups,
     train_spatial_model,
 )
-from demixing.visualization.plots import plot_confusion_matrix, plot_family_accuracy, plot_loss_curve, save_experiment_summary
+from demixing.legacy.visualization.plots import plot_confusion_matrix, plot_family_accuracy, plot_loss_curve, save_experiment_summary
 
 
 def main() -> None:

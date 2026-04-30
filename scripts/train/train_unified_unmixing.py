@@ -14,9 +14,9 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from demixing.data.dataset import RamanSpectrumDataset
-from demixing.models.unified_unmixing import UnifiedRamanUnmixingNet, UnifiedUnmixingConfig
-from demixing.training.trainer import TrainConfig, train_model
+from demixing.legacy.data.dataset import RamanSpectrumDataset
+from demixing.legacy.models.unified_unmixing import UnifiedRamanUnmixingNet, UnifiedUnmixingConfig
+from demixing.legacy.training.trainer import TrainConfig, train_model
 
 
 def load_anchor_tensor(data_root: Path, manifest_csv: Path) -> torch.Tensor | None:

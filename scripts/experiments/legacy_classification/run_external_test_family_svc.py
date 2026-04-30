@@ -15,9 +15,9 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from demixing.data.manifest import build_sample_manifest
-from demixing.evaluation.classical_models import load_spectrum_features
-from demixing.evaluation.inference import save_predictions
-from demixing.visualization.plots import plot_prediction_map, save_experiment_summary
+from demixing.legacy.evaluation.classical_models import load_spectrum_features
+from demixing.legacy.evaluation.inference import save_predictions
+from demixing.legacy.visualization.plots import plot_prediction_map, save_experiment_summary
 
 
 def build_family_model(family: str) -> Pipeline:

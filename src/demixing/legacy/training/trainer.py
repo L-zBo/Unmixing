@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from demixing.training.losses import (
+from demixing.legacy.training.losses import (
     anchor_penalty,
     concentration_interval_loss,
     endmember_separation_loss,

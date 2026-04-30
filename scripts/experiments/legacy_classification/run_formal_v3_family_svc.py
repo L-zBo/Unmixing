@@ -11,10 +11,10 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from demixing.data.manifest import build_sample_manifest
-from demixing.data.splits import assign_group_split
-from demixing.evaluation.classical_models import run_family_specific_svc
-from demixing.evaluation.inference import save_predictions
-from demixing.visualization.plots import plot_confusion_matrix, save_experiment_summary
+from demixing.legacy.data.splits import assign_group_split
+from demixing.legacy.evaluation.classical_models import run_family_specific_svc
+from demixing.legacy.evaluation.inference import save_predictions
+from demixing.legacy.visualization.plots import plot_confusion_matrix, save_experiment_summary
 
 
 def main() -> None:

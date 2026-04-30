@@ -15,15 +15,15 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from demixing.data.dataset import RamanSpectrumDataset
+from demixing.legacy.data.dataset import RamanSpectrumDataset
 from demixing.data.manifest import build_sample_manifest
 from demixing.data.preprocess import TARGET_AXIS, normalized_value_from_row
-from demixing.data.splits import assign_group_split
-from demixing.evaluation.baselines import run_anchor_nnls_baseline
-from demixing.evaluation.inference import run_inference, save_predictions
-from demixing.models.unified_unmixing import UnifiedRamanUnmixingNet, UnifiedUnmixingConfig
-from demixing.training.trainer import TrainConfig, train_model
-from demixing.visualization.plots import (
+from demixing.legacy.data.splits import assign_group_split
+from demixing.legacy.evaluation.baselines import run_anchor_nnls_baseline
+from demixing.legacy.evaluation.inference import run_inference, save_predictions
+from demixing.legacy.models.unified_unmixing import UnifiedRamanUnmixingNet, UnifiedUnmixingConfig
+from demixing.legacy.training.trainer import TrainConfig, train_model
+from demixing.legacy.visualization.plots import (
     plot_accuracy_comparison,
     plot_average_abundance,
     plot_endmembers,
