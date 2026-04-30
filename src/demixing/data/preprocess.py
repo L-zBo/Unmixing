@@ -14,9 +14,26 @@ from scipy.sparse.linalg import spsolve
 LASER_WAVELENGTH_NM = 785.0
 TARGET_AXIS = np.linspace(103.785, 3696.98, 1024)
 DEFAULT_INPUT_ROOT = Path("dataset")
-DEFAULT_OUTPUT_ROOT = Path("outputs/preprocessing/dataset_preprocessed_v1")
+DEFAULT_OUTPUT_ROOT = Path("outputs/preprocessing/dataset_preprocessed_als_l2")
 REPORT_DIRNAME = "_reports"
 _BASELINE_MATRIX_CACHE: dict[tuple[int, float], sparse.spmatrix] = {}
+
+
+@dataclass(frozen=True)
+class PreprocessProtocol:
+    name: str
+    baseline_mode: str
+    normalize_mode: str
+    apply_despike: bool = True
+    apply_savgol: bool = True
+
+
+DEFAULT_PROTOCOL_NAME = "als_l2"
+PREPROCESS_PROTOCOLS: dict[str, PreprocessProtocol] = {
+    "als_l2": PreprocessProtocol(name="als_l2", baseline_mode="als", normalize_mode="l2"),
+    "als_max": PreprocessProtocol(name="als_max", baseline_mode="als", normalize_mode="max"),
+    "none_l2": PreprocessProtocol(name="none_l2", baseline_mode="none", normalize_mode="l2"),
+}
 
 
 @dataclass
@@ -167,6 +184,46 @@ def safe_max_normalize(intensity: np.ndarray) -> np.ndarray:
     return intensity / max_value
 
 
+def safe_l2_normalize(intensity: np.ndarray) -> np.ndarray:
+    l2_norm = float(np.linalg.norm(intensity))
+    if l2_norm <= 0:
+        return intensity.copy()
+    return intensity / l2_norm
+
+
+def get_preprocess_protocol(protocol_name: str = DEFAULT_PROTOCOL_NAME) -> PreprocessProtocol:
+    if protocol_name not in PREPROCESS_PROTOCOLS:
+        choices = ", ".join(sorted(PREPROCESS_PROTOCOLS))
+        raise KeyError(f"Unknown preprocess protocol {protocol_name!r}. Available: {choices}")
+    return PREPROCESS_PROTOCOLS[protocol_name]
+
+
+def normalized_column_name(normalize_mode: str) -> str:
+    if normalize_mode == "l2":
+        return "Intensity_norm_l2"
+    if normalize_mode == "max":
+        return "Intensity_norm_max"
+    return "Intensity_normalized"
+
+
+def normalize_intensity(intensity: np.ndarray, normalize_mode: str) -> np.ndarray:
+    if normalize_mode == "l2":
+        return safe_l2_normalize(intensity)
+    if normalize_mode == "max":
+        return safe_max_normalize(intensity)
+    if normalize_mode == "none":
+        return intensity.copy()
+    raise ValueError(f"Unsupported normalize_mode={normalize_mode!r}")
+
+
+def normalized_value_from_row(row: dict[str, str]) -> float:
+    for key in ("Intensity_normalized", "Intensity_norm_l2", "Intensity_norm_max"):
+        value = row.get(key)
+        if value not in (None, ""):
+            return float(value)
+    raise KeyError("No normalized intensity column found.")
+
+
 def spectrum_metrics(intensity: np.ndarray) -> dict[str, float]:
     if intensity.size < 3:
         return {
@@ -189,13 +246,20 @@ def spectrum_metrics(intensity: np.ndarray) -> dict[str, float]:
     }
 
 
-def write_processed_csv(path: Path, corrected: np.ndarray, normalized: np.ndarray) -> None:
+def write_processed_csv(path: Path, corrected: np.ndarray, normalized: np.ndarray, normalize_mode: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    norm_key = normalized_column_name(normalize_mode)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["RamanShift_cm-1", "Intensity_corrected", "Intensity_norm_max"])
+        header = ["RamanShift_cm-1", "Intensity_corrected", "Intensity_normalized"]
+        if norm_key != "Intensity_normalized":
+            header.append(norm_key)
+        writer.writerow(header)
         for axis_value, corr, norm in zip(TARGET_AXIS, corrected, normalized):
-            writer.writerow([f"{axis_value:.6f}", f"{corr:.6f}", f"{norm:.6f}"])
+            row = [f"{axis_value:.6f}", f"{corr:.6f}", f"{norm:.6f}"]
+            if norm_key != "Intensity_normalized":
+                row.append(f"{norm:.6f}")
+            writer.writerow(row)
 
 
 def write_reports(records: Sequence[dict[str, object]], summary: dict[str, object], report_dir: Path) -> None:
@@ -237,22 +301,37 @@ def write_reports(records: Sequence[dict[str, object]], summary: dict[str, objec
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def preprocess_record(spectrum: SpectrumRecord) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, float]]:
+def preprocess_record(
+    spectrum: SpectrumRecord,
+    protocol_name: str = DEFAULT_PROTOCOL_NAME,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, float]]:
+    protocol = get_preprocess_protocol(protocol_name)
     axis = spectrum.axis
     if spectrum.axis_type == "wavelength_nm":
         axis = wavelength_to_raman_shift(axis)
 
     axis, intensity = ensure_ascending(axis, spectrum.intensity)
     resampled = resample_to_target_axis(axis, intensity, TARGET_AXIS)
-    despiked = hampel_despike(resampled)
-    smoothed = savitzky_golay(despiked, window=7, order=2)
-    baseline = baseline_als(smoothed, lam=1e5, p=0.01, iterations=10)
-    corrected = smoothed - baseline
+    working = resampled
+    if protocol.apply_despike:
+        working = hampel_despike(working)
+    if protocol.apply_savgol:
+        working = savitzky_golay(working, window=7, order=2)
+    if protocol.baseline_mode == "als":
+        baseline = baseline_als(working, lam=1e5, p=0.01, iterations=10)
+        corrected = working - baseline
+    elif protocol.baseline_mode == "none":
+        corrected = working.copy()
+    else:
+        raise ValueError(f"Unsupported baseline_mode={protocol.baseline_mode!r}")
     before_clip = spectrum_metrics(corrected)
     corrected = np.clip(corrected, 0.0, None)
-    normalized = safe_max_normalize(corrected)
+    normalized = normalize_intensity(corrected, protocol.normalize_mode)
     after_clip = spectrum_metrics(corrected)
     merged = {
+        "protocol_name": protocol.name,
+        "baseline_mode": protocol.baseline_mode,
+        "normalize_mode": protocol.normalize_mode,
         "min_before_clip": before_clip["min"],
         "negative_count_before_clip": before_clip["negative_count"],
         "roughness_after": after_clip["roughness"],
@@ -262,7 +341,12 @@ def preprocess_record(spectrum: SpectrumRecord) -> tuple[np.ndarray, np.ndarray,
     return TARGET_AXIS, corrected, normalized, merged
 
 
-def process_dataset(input_root: Path = DEFAULT_INPUT_ROOT, output_root: Path = DEFAULT_OUTPUT_ROOT) -> dict[str, object]:
+def process_dataset(
+    input_root: Path = DEFAULT_INPUT_ROOT,
+    output_root: Path = DEFAULT_OUTPUT_ROOT,
+    protocol_name: str = DEFAULT_PROTOCOL_NAME,
+) -> dict[str, object]:
+    protocol = get_preprocess_protocol(protocol_name)
     csv_files = sorted(input_root.rglob("*.csv"))
     records: list[dict[str, object]] = []
     converted_count = 0
@@ -270,14 +354,14 @@ def process_dataset(input_root: Path = DEFAULT_INPUT_ROOT, output_root: Path = D
 
     for csv_path in csv_files:
         spectrum = load_spectrum(csv_path, input_root)
-        _, corrected, normalized, metrics = preprocess_record(spectrum)
+        _, corrected, normalized, metrics = preprocess_record(spectrum, protocol_name=protocol.name)
         if spectrum.axis_type == "wavelength_nm":
             converted_count += 1
         if metrics["negative_count_before_clip"] > 0:
             clipped_count += 1
 
         output_path = output_root / spectrum.relative_path
-        write_processed_csv(output_path, corrected, normalized)
+        write_processed_csv(output_path, corrected, normalized, normalize_mode=protocol.normalize_mode)
 
         records.append(
             {
@@ -299,6 +383,10 @@ def process_dataset(input_root: Path = DEFAULT_INPUT_ROOT, output_root: Path = D
     summary = {
         "input_root": str(input_root),
         "output_root": str(output_root),
+        "protocol_name": protocol.name,
+        "baseline_mode": protocol.baseline_mode,
+        "normalize_mode": protocol.normalize_mode,
+        "normalized_column": normalized_column_name(protocol.normalize_mode),
         "target_axis_points": int(TARGET_AXIS.size),
         "target_axis_start": float(TARGET_AXIS[0]),
         "target_axis_end": float(TARGET_AXIS[-1]),

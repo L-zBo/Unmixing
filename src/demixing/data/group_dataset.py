@@ -11,6 +11,8 @@ import torch
 from sklearn.decomposition import PCA
 from torch.utils.data import Dataset
 
+from demixing.data.preprocess import normalized_value_from_row
+
 
 def _extract_xy(relative_path: str) -> tuple[int, int]:
     name = Path(relative_path).name
@@ -24,8 +26,9 @@ def _extract_xy(relative_path: str) -> tuple[int, int]:
 def load_pixel_spectrum(data_root: Path, relative_path: str, use_normalized: bool = True) -> np.ndarray:
     with (data_root / relative_path).open("r", encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    key = "Intensity_norm_max" if use_normalized else "Intensity_corrected"
-    return np.asarray([float(row[key]) for row in rows], dtype=np.float32)
+    if use_normalized:
+        return np.asarray([normalized_value_from_row(row) for row in rows], dtype=np.float32)
+    return np.asarray([float(row["Intensity_corrected"]) for row in rows], dtype=np.float32)
 
 
 @dataclass

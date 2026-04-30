@@ -6,7 +6,13 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from demixing.data.preprocess import DEFAULT_INPUT_ROOT, TARGET_AXIS, load_spectrum, preprocess_record
+from demixing.data.preprocess import (
+    DEFAULT_INPUT_ROOT,
+    DEFAULT_PROTOCOL_NAME,
+    TARGET_AXIS,
+    load_spectrum,
+    preprocess_record,
+)
 
 
 DEFAULT_COMPONENT_PATHS: dict[str, Path] = {
@@ -78,10 +84,11 @@ def load_endmember_spectrum(
     relative_path: Path | str,
     input_root: Path = DEFAULT_INPUT_ROOT,
     feature_mode: str = "normalized",
+    protocol_name: str = DEFAULT_PROTOCOL_NAME,
 ) -> np.ndarray:
     relative_path = Path(relative_path)
     spectrum = load_spectrum(input_root / relative_path, input_root)
-    _, corrected, normalized, _ = preprocess_record(spectrum)
+    _, corrected, normalized, _ = preprocess_record(spectrum, protocol_name=protocol_name)
     return _select_feature(corrected, normalized, feature_mode)
 
 
@@ -89,6 +96,7 @@ def build_endmember_library(
     component_paths: Mapping[str, Path | str],
     input_root: Path = DEFAULT_INPUT_ROOT,
     feature_mode: str = "normalized",
+    protocol_name: str = DEFAULT_PROTOCOL_NAME,
 ) -> EndmemberLibrary:
     names = tuple(component_paths.keys())
     if not names:
@@ -98,7 +106,14 @@ def build_endmember_library(
     resolved_paths: dict[str, Path] = {}
     for name, relative_path in component_paths.items():
         relative_path = Path(relative_path)
-        spectra.append(load_endmember_spectrum(relative_path, input_root=input_root, feature_mode=feature_mode))
+        spectra.append(
+            load_endmember_spectrum(
+                relative_path,
+                input_root=input_root,
+                feature_mode=feature_mode,
+                protocol_name=protocol_name,
+            )
+        )
         resolved_paths[name] = relative_path
 
     matrix = np.column_stack(spectra).astype(np.float32, copy=False)
@@ -116,6 +131,7 @@ def build_default_endmember_library(
     include_components: Sequence[str] = ("PE", "PP", "starch"),
     starch_source: str = "baseline",
     feature_mode: str = "normalized",
+    protocol_name: str = DEFAULT_PROTOCOL_NAME,
 ) -> EndmemberLibrary:
     component_paths = resolve_default_component_paths(
         include_components=include_components,
@@ -125,4 +141,5 @@ def build_default_endmember_library(
         component_paths=component_paths,
         input_root=input_root,
         feature_mode=feature_mode,
+        protocol_name=protocol_name,
     )

@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from demixing.data.preprocess import normalized_value_from_row
+
 
 class RamanSpectrumDataset(Dataset):
     def __init__(
@@ -90,7 +92,7 @@ class RamanSpectrumDataset(Dataset):
             rows = list(csv.DictReader(handle))
         values = np.asarray(
             [
-                float(row["Intensity_norm_max"] if self.use_normalized else row["Intensity_corrected"])
+                (normalized_value_from_row(row) if self.use_normalized else float(row["Intensity_corrected"]))
                 for row in rows
             ],
             dtype=np.float32,

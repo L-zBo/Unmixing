@@ -11,6 +11,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from demixing.data.preprocess import normalized_value_from_row
+
 
 @dataclass
 class FamilySpecificSVCResult:
@@ -26,7 +28,7 @@ def load_spectrum_features(data_root: Path, relative_path: str, feature_mode: st
     with (data_root / relative_path).open("r", encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
     corrected = np.asarray([float(row["Intensity_corrected"]) for row in rows], dtype=np.float32)
-    normalized = np.asarray([float(row["Intensity_norm_max"]) for row in rows], dtype=np.float32)
+    normalized = np.asarray([normalized_value_from_row(row) for row in rows], dtype=np.float32)
     derivative = np.diff(normalized, prepend=normalized[0]).astype(np.float32)
     fingerprint = slice(50, 450)
     ch_stretch = slice(750, 900)

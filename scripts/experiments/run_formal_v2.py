@@ -17,7 +17,7 @@ if str(SRC) not in sys.path:
 
 from demixing.data.dataset import RamanSpectrumDataset
 from demixing.data.manifest import build_sample_manifest
-from demixing.data.preprocess import TARGET_AXIS
+from demixing.data.preprocess import TARGET_AXIS, normalized_value_from_row
 from demixing.data.splits import assign_group_split
 from demixing.evaluation.baselines import run_anchor_nnls_baseline
 from demixing.evaluation.inference import run_inference, save_predictions
@@ -50,7 +50,7 @@ def load_anchor_tensor(data_root: Path, manifest_csv: Path) -> torch.Tensor | No
             continue
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             spectrum_rows = list(csv.DictReader(handle))
-        anchors.append([float(item["Intensity_norm_max"]) for item in spectrum_rows])
+        anchors.append([normalized_value_from_row(item) for item in spectrum_rows])
     return torch.tensor(anchors, dtype=torch.float32) if anchors else None
 
 
