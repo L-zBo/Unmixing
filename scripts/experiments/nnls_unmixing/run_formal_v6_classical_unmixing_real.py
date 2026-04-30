@@ -27,13 +27,12 @@ from demixing.evaluation.classical_unmixing import (
     blind_nmf_unmix_spectra,
     unmix_spectra,
 )
-from demixing.evaluation.inference import save_predictions
+from demixing.utils.io import save_experiment_summary, save_predictions
 from demixing.visualization.classical_unmixing import (
     plot_abundance_maps,
     plot_reconstruction_examples,
     plot_residual_map,
 )
-from demixing.visualization.plots import save_experiment_summary
 
 
 PE_STARCH_DIR = "PE+\u6dc0\u7c89"
