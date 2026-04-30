@@ -1,4 +1,6 @@
-# 项目流程说明
+# 旧分类路线流程说明（v1-v5）
+
+> 本文档记录的是项目早期的「家族分类 + 组级空间评估」路线，对应实验脚本已归档到 `scripts/experiments/legacy_classification/`。当前主线已切换到 NNLS 解混，详见 [`nnls_unmixing_flow.md`](nnls_unmixing_flow.md)。本文保留作为历史背景与基线参照。
 
 ## 一句话理解项目
 
@@ -139,11 +141,11 @@
 
 主要实验脚本：
 
-- `scripts/experiments/run_formal_v1.py`
-- `scripts/experiments/run_formal_v2.py`
-- `scripts/experiments/run_formal_v3_family_svc.py`
-- `scripts/experiments/run_formal_v4_group_spatial.py`
-- `scripts/experiments/run_external_test_family_svc.py`
+- `scripts/experiments/legacy_classification/run_formal_v1.py`
+- `scripts/experiments/legacy_classification/run_formal_v2.py`
+- `scripts/experiments/legacy_classification/run_formal_v3_family_svc.py`
+- `scripts/experiments/legacy_classification/run_formal_v4_group_spatial.py`
+- `scripts/experiments/legacy_classification/run_external_test_family_svc.py`
 
 各自的作用：
 

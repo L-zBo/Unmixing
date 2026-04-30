@@ -1,4 +1,6 @@
-# NNLS解混项目代码落实说明
+# NNLS 解混项目代码落实说明（主线）
+
+> 本文档是项目当前主线方法 NNLS 经典解混的统一落地口径。对应实验脚本归档在 `scripts/experiments/nnls_unmixing/`；早期分类路线见 [`legacy_classification_flow.md`](legacy_classification_flow.md)。
 
 ## 1.本文档的定位
 
@@ -220,9 +222,9 @@
 
 #### 正式实验脚本
 
-- `scripts/experiments/run_formal_v6_classical_unmixing_synthetic.py`
-  合成数据上的四方法对比
-- `scripts/experiments/run_formal_v7_classical_unmixing_real.py`
+- `scripts/experiments/nnls_unmixing/run_formal_v9_synthetic_method_comparison.py`
+  合成真值数据上的四方法对比
+- `scripts/experiments/nnls_unmixing/run_formal_v6_classical_unmixing_real.py`
   真实数据上的解混、重构和空间图输出
 
 建议输出到：
@@ -381,9 +383,9 @@
 
 已完成文件：
 
-- `scripts/experiments/run_formal_v6_classical_unmixing_real.py`
-- `scripts/experiments/run_formal_v7_method_comparison_real.py`
-- `scripts/experiments/run_formal_v8_batch_method_comparison.py`
+- `scripts/experiments/nnls_unmixing/run_formal_v6_classical_unmixing_real.py`
+- `scripts/experiments/nnls_unmixing/run_formal_v7_method_comparison_real.py`
+- `scripts/experiments/nnls_unmixing/run_formal_v8_batch_method_comparison.py`
 
 已具备能力：
 
@@ -478,13 +480,15 @@
 - 旧的`ALS + max`没有删，继续保留作后续对比
 - `src/demixing/data/preprocess.py`已经支持`als_l2`、`als_max`、`none_l2`
 - `src/demixing/data/endmembers.py`已经支持按预处理协议加载端元
-- 已新增`[scripts/experiments/run_formal_v10_preprocessing_comparison_real.py](f:/VsCodeproject/Unmixing/scripts/experiments/run_formal_v10_preprocessing_comparison_real.py)`，可固定解混方法对比不同预处理协议
-- 已新增`[scripts/experiments/run_formal_v11_batch_preprocessing_comparison.py](f:/VsCodeproject/Unmixing/scripts/experiments/run_formal_v11_batch_preprocessing_comparison.py)`，可在多张典型图上批量汇总预处理对比结果
-- 已新增`[src/demixing/data/synthetic_unmixing.py](f:/VsCodeproject/Unmixing/src/demixing/data/synthetic_unmixing.py)`和`[scripts/data/generate_synthetic_unmixing_dataset.py](f:/VsCodeproject/Unmixing/scripts/data/generate_synthetic_unmixing_dataset.py)`，用于生成有真值的二维合成解混数据
-- 已新增`[scripts/experiments/run_formal_v9_synthetic_method_comparison.py](f:/VsCodeproject/Unmixing/scripts/experiments/run_formal_v9_synthetic_method_comparison.py)`，用于在合成真值数据上比较`OLS/NNLS/FCLS/NMF`
+- 已新增`scripts/experiments/nnls_unmixing/run_formal_v10_preprocessing_comparison_real.py`，可固定解混方法对比不同预处理协议
+- 已新增`scripts/experiments/nnls_unmixing/run_formal_v11_batch_preprocessing_comparison.py`，可在多张典型图上批量汇总预处理对比结果
+- 已新增`src/demixing/data/synthetic_unmixing.py`和`scripts/data/generate_synthetic_unmixing_dataset.py`，用于生成有真值的二维合成解混数据
+- 已新增`scripts/experiments/nnls_unmixing/run_formal_v9_synthetic_method_comparison.py`，用于在合成真值数据上比较`OLS/NNLS/FCLS/NMF`
+- 合成真值评估口径已分层为 orig/proj/重构三层指标（v9 校准）
+- 已新增`scripts/experiments/nnls_unmixing/run_formal_v12_generalization_batch.py`，用于在`dataset/泛化/`不同淀粉来源上做批量解混评估
+- 实验脚本按路线归档：分类基线统一移到`scripts/experiments/legacy_classification/`，NNLS 解混路线统一移到`scripts/experiments/nnls_unmixing/`
 
 当前还需要继续补强的重点：
 
 - 合成真值评估指标还需要进一步校准，特别是“归一化后丰度真值”的解释口径
 - 预处理对比目前先在真实数据上跑通，后续还要扩展到更多样本和更多协议
-- 现有git提交因为当前环境对`.git`写入有限制，还没把这一大段新增代码正常分批提交回远程
