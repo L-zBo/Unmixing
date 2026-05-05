@@ -6,7 +6,7 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from demixing.data.preprocess import (
+from preprocessing.preprocess import (
     DEFAULT_INPUT_ROOT,
     DEFAULT_PROTOCOL_NAME,
     TARGET_AXIS,

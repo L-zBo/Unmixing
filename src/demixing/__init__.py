@@ -1,2 +1,0 @@
-"""Demixing project package."""
-

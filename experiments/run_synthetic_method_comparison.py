@@ -8,14 +8,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from demixing.data.endmembers import EndmemberLibrary
-from demixing.data.preprocess import DEFAULT_PROTOCOL_NAME, PREPROCESS_PROTOCOLS, SpectrumRecord, preprocess_record
-from demixing.evaluation.classical_unmixing import (
+from preprocessing.endmembers import EndmemberLibrary
+from preprocessing.preprocess import DEFAULT_PROTOCOL_NAME, PREPROCESS_PROTOCOLS, SpectrumRecord, preprocess_record
+from unmixing.unmix import (
     align_blind_nmf_to_reference,
     blind_nmf_unmix_spectra,
     unmix_spectra,

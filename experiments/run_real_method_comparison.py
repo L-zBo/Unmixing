@@ -9,48 +9,44 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from demixing.data.endmembers import build_default_endmember_library
-from demixing.data.preprocess import (
+from preprocessing.endmembers import build_default_endmember_library
+from preprocessing.preprocess import (
     DEFAULT_INPUT_ROOT,
     DEFAULT_PROTOCOL_NAME,
     PREPROCESS_PROTOCOLS,
     load_spectrum,
     preprocess_record,
 )
-from demixing.evaluation.classical_unmixing import (
+from unmixing.unmix import (
     align_blind_nmf_to_reference,
     blind_nmf_unmix_spectra,
     unmix_spectra,
 )
+from visualization import plot_method_abundance_bars, plot_method_metric_bars
 
 
 PE_STARCH_DIR = "PE+\u6dc0\u7c89"
 PP_STARCH_DIR = "PP+\u6dc0\u7c89"
 PP_PE_STARCH_DIR = "PP+PE+\u6dc0\u7c89"
 
-DEFAULT_SAMPLE_DIRS = [
-    Path(PE_STARCH_DIR) / "1 785mw 2s 2 2 40 40",
-    Path(PP_STARCH_DIR) / "1 785mw 2s 2 2 40 40",
-    Path("test") / PP_PE_STARCH_DIR / "1 785mw 2s 1 1 40 40",
-]
-DEFAULT_OUTPUT_ROOT = ROOT / "outputs/experiments/formal_v8_batch_method_comparison"
+DEFAULT_SAMPLE_DIR = Path(PE_STARCH_DIR) / "1 785mw 2s 2 2 40 40"
+DEFAULT_OUTPUT_ROOT = ROOT / "outputs/experiments/formal_v7_method_comparison_real"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Batch-compare OLS/NNLS/FCLS/NMF on multiple real Raman mapping directories.")
+    parser = argparse.ArgumentParser(description="Compare OLS/NNLS/FCLS/NMF on one real Raman mapping directory.")
     parser.add_argument("--input-root", type=Path, default=ROOT / DEFAULT_INPUT_ROOT)
+    parser.add_argument("--sample-dir", type=Path, default=DEFAULT_SAMPLE_DIR)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--feature-mode", choices=["normalized", "corrected"], default="normalized")
     parser.add_argument("--starch-source", default="baseline")
     parser.add_argument("--protocol", choices=sorted(PREPROCESS_PROTOCOLS), default=DEFAULT_PROTOCOL_NAME)
     parser.add_argument("--nmf-components", type=int, default=None)
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--sample-dir", type=Path, action="append", default=None)
     return parser.parse_args()
 
 
@@ -104,14 +100,8 @@ def load_mapping_spectra(
     return pd.DataFrame(rows), np.stack(spectra).astype(np.float32)
 
 
-def summarize_prediction_df(
-    sample_dir: Path,
-    method: str,
-    component_names: tuple[str, ...],
-    prediction_df: pd.DataFrame,
-) -> dict[str, object]:
+def summarize_prediction_df(method: str, component_names: tuple[str, ...], prediction_df: pd.DataFrame) -> dict[str, object]:
     row: dict[str, object] = {
-        "sample_dir": sample_dir.as_posix(),
         "method": method,
         "n_spectra": int(len(prediction_df)),
         "mean_residual_l2": float(prediction_df["residual_l2"].mean()),
@@ -131,56 +121,73 @@ def summarize_prediction_df(
 
 def main() -> None:
     args = parse_args()
-    sample_dirs = args.sample_dir or DEFAULT_SAMPLE_DIRS
+    components = infer_components(args.sample_dir)
+    _, spectra = load_mapping_spectra(
+        args.input_root,
+        args.sample_dir,
+        args.feature_mode,
+        protocol_name=args.protocol,
+        limit=args.limit,
+    )
+    output_dir = args.output_root / args.sample_dir.as_posix().replace("/", "__").replace("\\", "__")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    reference_library = build_default_endmember_library(
+        input_root=args.input_root,
+        include_components=components,
+        starch_source=args.starch_source,
+        feature_mode=args.feature_mode,
+        protocol_name=args.protocol,
+    )
+
     rows: list[dict[str, object]] = []
-
-    for sample_dir in sample_dirs:
-        components = infer_components(sample_dir)
-        _, spectra = load_mapping_spectra(
-            input_root=args.input_root,
-            sample_dir=sample_dir,
-            feature_mode=args.feature_mode,
-            protocol_name=args.protocol,
-            limit=args.limit,
-        )
-        reference_library = build_default_endmember_library(
-            input_root=args.input_root,
-            include_components=components,
-            starch_source=args.starch_source,
-            feature_mode=args.feature_mode,
-            protocol_name=args.protocol,
-        )
-
-        for method in ("ols", "nnls", "fcls"):
-            result = unmix_spectra(spectra, library=reference_library, method=method)
-            prediction_df = result.to_frame()
-            prediction_df["dominant_component"] = [
-                result.component_names[index]
-                for index in np.argmax(result.abundances, axis=1)
-            ]
-            rows.append(summarize_prediction_df(sample_dir, method, result.component_names, prediction_df))
-
-        nmf_components = args.nmf_components or len(components)
-        nmf_result = blind_nmf_unmix_spectra(spectra, n_components=nmf_components)
-        nmf_result, _ = align_blind_nmf_to_reference(nmf_result, reference_library)
-        nmf_prediction_df = nmf_result.to_frame()
-        nmf_prediction_df["dominant_component"] = [
-            nmf_result.component_names[index]
-            for index in np.argmax(nmf_result.abundances, axis=1)
+    for method in ("ols", "nnls", "fcls"):
+        result = unmix_spectra(spectra, library=reference_library, method=method)
+        prediction_df = result.to_frame()
+        prediction_df["dominant_component"] = [
+            result.component_names[index]
+            for index in np.argmax(result.abundances, axis=1)
         ]
-        rows.append(summarize_prediction_df(sample_dir, "nmf", nmf_result.component_names, nmf_prediction_df))
+        prediction_df.to_csv(output_dir / f"{method}_summary_pixels.csv", index=False, encoding="utf-8-sig")
+        rows.append(summarize_prediction_df(method, result.component_names, prediction_df))
+
+    nmf_components = args.nmf_components or len(components)
+    nmf_result = blind_nmf_unmix_spectra(spectra, n_components=nmf_components)
+    nmf_result, similarity_df = align_blind_nmf_to_reference(nmf_result, reference_library)
+    nmf_prediction_df = nmf_result.to_frame()
+    nmf_prediction_df["dominant_component"] = [
+        nmf_result.component_names[index]
+        for index in np.argmax(nmf_result.abundances, axis=1)
+    ]
+    nmf_prediction_df.to_csv(output_dir / "nmf_summary_pixels.csv", index=False, encoding="utf-8-sig")
+    similarity_df.to_csv(output_dir / "nmf_reference_similarity.csv", encoding="utf-8-sig")
+    rows.append(summarize_prediction_df("nmf", nmf_result.component_names, nmf_prediction_df))
 
     summary_df = pd.DataFrame(rows)
-    args.output_root.mkdir(parents=True, exist_ok=True)
-    summary_df.to_csv(args.output_root / "batch_method_comparison_summary.csv", index=False, encoding="utf-8-sig")
+    summary_df.to_csv(output_dir / "method_comparison_summary.csv", index=False, encoding="utf-8-sig")
+    plot_method_metric_bars(
+        summary_df,
+        metric_cols=["mean_residual_rmse", "mean_residual_r2"],
+        output_path=output_dir / "method_metric_comparison.png",
+        title="Method residual comparison",
+    )
+    plot_method_abundance_bars(
+        summary_df,
+        component_names=list(components),
+        output_path=output_dir / "method_abundance_comparison.png",
+        title="Method mean abundance comparison",
+    )
+
     summary_json = {
+        "sample_dir": args.sample_dir.as_posix(),
         "feature_mode": args.feature_mode,
         "protocol": args.protocol,
         "starch_source": args.starch_source,
-        "samples": [sample_dir.as_posix() for sample_dir in sample_dirs],
-        "rows": rows,
+        "components": list(components),
+        "nmf_components": nmf_components,
+        "methods": rows,
     }
-    (args.output_root / "batch_method_comparison_summary.json").write_text(
+    (output_dir / "method_comparison_summary.json").write_text(
         json.dumps(summary_json, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

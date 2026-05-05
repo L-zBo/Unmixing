@@ -4,14 +4,13 @@ import argparse
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from demixing.data.endmembers import build_default_endmember_library
-from demixing.data.preprocess import DEFAULT_INPUT_ROOT
-from demixing.data.synthetic_unmixing import (
+from preprocessing.endmembers import build_default_endmember_library
+from preprocessing.preprocess import DEFAULT_INPUT_ROOT
+from synthetic.generator import (
     SyntheticMapConfig,
     generate_synthetic_map,
     save_synthetic_map,

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import gaussian_filter
 
-from demixing.data.endmembers import EndmemberLibrary
+from preprocessing.endmembers import EndmemberLibrary
 
 
 @dataclass(frozen=True)

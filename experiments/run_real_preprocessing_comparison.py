@@ -9,19 +9,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from demixing.data.endmembers import build_default_endmember_library
-from demixing.data.preprocess import DEFAULT_INPUT_ROOT, PREPROCESS_PROTOCOLS, load_spectrum, preprocess_record
-from demixing.evaluation.classical_unmixing import (
+from preprocessing.endmembers import build_default_endmember_library
+from preprocessing.preprocess import DEFAULT_INPUT_ROOT, PREPROCESS_PROTOCOLS, load_spectrum, preprocess_record
+from unmixing.unmix import (
     align_blind_nmf_to_reference,
     blind_nmf_unmix_spectra,
     unmix_spectra,
 )
-from demixing.visualization.classical_unmixing import (
+from visualization import (
     plot_method_abundance_bars,
     plot_method_metric_bars,
     plot_protocol_abundance_grid,

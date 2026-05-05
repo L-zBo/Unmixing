@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment, minimize, nnls
 from sklearn.decomposition import NMF as SklearnNMF
 
-from demixing.data.endmembers import EndmemberLibrary
+from preprocessing.endmembers import EndmemberLibrary
 
 
 UnmixingMethod = Literal["ols", "nnls", "fcls"]
