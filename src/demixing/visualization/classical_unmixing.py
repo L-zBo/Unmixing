@@ -272,8 +272,6 @@ def plot_protocol_abundance_grid(
             image = ax.imshow(grid, cmap="magma", vmin=0.0, vmax=1.0)
             if row_idx == 0:
                 ax.set_title(component)
-            if col_idx == 0:
-                ax.set_ylabel(protocol)
             ax.set_xlabel("X")
             ax.set_ylabel(protocol if col_idx == 0 else "Y")
             fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
