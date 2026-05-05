@@ -1,6 +1,6 @@
 # 旧分类路线流程说明（v1-v5）
 
-> 本文档记录的是项目早期的「家族分类 + 组级空间评估」路线，对应实验脚本已归档到 `scripts/experiments/legacy_classification/`。当前主线已切换到 NNLS 解混，详见 [`nnls_unmixing_flow.md`](nnls_unmixing_flow.md)。本文保留作为历史背景与基线参照。
+> 本文档记录的是项目早期的「家族分类 + 组级空间评估」路线，对应代码与脚本已归档到 `archive/legacy_classification/`。当前主线已切换到 NNLS 解混，详见 [`nnls_unmixing_flow.md`](nnls_unmixing_flow.md)。本文保留作为历史背景与基线参照。
 
 ## 一句话理解项目
 
@@ -38,10 +38,10 @@
 
 ## 第二层：预处理
 
-核心代码：
+核心代码（当前已归档）：
 
-- `src/demixing/data/preprocess.py`
-- `scripts/data/preprocess_dataset.py`
+- `preprocessing/preprocess.py`
+- `preprocessing/preprocess_dataset.py`
 
 主要做的事：
 
@@ -62,13 +62,12 @@
 
 ## 第三层：样本清单与质量分层
 
-核心代码：
+核心代码（当前已归档）：
 
-- `src/demixing/data/manifest.py`
-- `src/demixing/data/quality.py`
-- `src/demixing/data/splits.py`
-- `scripts/data/build_quality_manifest.py`
-- `scripts/data/build_sample_manifest.py`
+- `archive/legacy_data_pipeline/modules/manifest.py`
+- `archive/legacy_data_pipeline/modules/quality.py`
+- `archive/legacy_data_pipeline/scripts/build_quality_manifest.py`
+- `archive/legacy_data_pipeline/scripts/build_sample_manifest.py`
 
 主要做的事：
 
@@ -105,11 +104,11 @@
 
 ### 路线A：统一解混主模型
 
-核心代码：
+核心代码（当前已归档）：
 
-- `src/demixing/models/unified_unmixing.py`
-- `src/demixing/training/losses.py`
-- `src/demixing/training/trainer.py`
+- `archive/legacy_classification/src_demixing_legacy/models/unified_unmixing.py`
+- `archive/legacy_classification/src_demixing_legacy/training/losses.py`
+- `archive/legacy_classification/src_demixing_legacy/training/trainer.py`
 
 它想做的事情：
 
@@ -123,9 +122,9 @@
 
 ### 路线B：家族分开强基线
 
-核心代码：
+核心代码（当前已归档）：
 
-- `src/demixing/evaluation/classical_models.py`
+- `archive/legacy_classification/src_demixing_legacy/evaluation/classical_models.py`
 
 它做的事情：
 
@@ -139,13 +138,14 @@
 
 ## 第五层：实验脚本
 
-主要实验脚本：
+主要实验脚本（当前已归档）：
 
-- `scripts/experiments/legacy_classification/run_formal_v1.py`
-- `scripts/experiments/legacy_classification/run_formal_v2.py`
-- `scripts/experiments/legacy_classification/run_formal_v3_family_svc.py`
-- `scripts/experiments/legacy_classification/run_formal_v4_group_spatial.py`
-- `scripts/experiments/legacy_classification/run_external_test_family_svc.py`
+- `archive/legacy_classification/scripts_legacy_classification/run_formal_v1.py`
+- `archive/legacy_classification/scripts_legacy_classification/run_formal_v2.py`
+- `archive/legacy_classification/scripts_legacy_classification/run_formal_v3_family_svc.py`
+- `archive/legacy_classification/scripts_legacy_classification/run_formal_v4_group_spatial.py`
+- `archive/legacy_classification/scripts_legacy_classification/run_formal_v5_spatial_cnn.py`
+- `archive/legacy_classification/scripts_legacy_classification/run_external_test_family_svc.py`
 
 各自的作用：
 

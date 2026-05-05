@@ -20,3 +20,6 @@ Thumbs.db
 
 # Local tool state
 .spec-workflow/
+
+# Local session transcripts (do not push to remote)
+对话记录/

@@ -1,6 +1,6 @@
 # NNLS 解混项目代码落实说明（主线）
 
-> 本文档是项目当前主线方法 NNLS 经典解混的统一落地口径。对应实验脚本归档在 `scripts/experiments/nnls_unmixing/`；早期分类路线见 [`legacy_classification_flow.md`](legacy_classification_flow.md)。
+> 本文档是项目当前主线方法 NNLS 经典解混的统一落地口径。仓库已切换到「按职责扁平铺开」的结构，主线代码分布在 `preprocessing/` `synthetic/` `unmixing/` `visualization/` `experiments/` `utils/` 六个顶层目录；早期分类路线见 [`legacy_classification_flow.md`](legacy_classification_flow.md)，对应代码与脚本整体归档到 `archive/legacy_classification/`。
 
 ## 1.本文档的定位
 
@@ -173,68 +173,51 @@
 
 ## 7.后续代码落地建议
 
-注意：当前本地工作区主要是私有数据，不是完整代码仓。远程仓库现有结构已经包含：
-
-- `src/`
-- `scripts/`
-- `docs/`
-- `.gitignore`
-
-并且`.gitignore`已经排除了：
+注意：当前仓库已收成「按职责扁平铺开」结构，主线代码全部位于顶层职责目录，不再放在 `src/demixing/` 下面。`.gitignore` 已经排除了：
 
 - `dataset/`
 - `outputs/`
 
-因此，后续正式落代码时，建议沿用远程仓库现有结构，不要另起炉灶。
+因此，后续正式落代码时，建议沿用现有的扁平结构，不要另起炉灶。
 
 ### 7.1建议新增或扩展的代码位置
 
 #### 数据与端元管理
 
-- `src/demixing/data/preprocess.py`
-  继续沿用现有预处理逻辑，统一输出1024点标准波数轴下的预处理结果
-- `src/demixing/data/endmembers.py`
-  建议新增，用于加载纯谱、构建端元矩阵、管理不同淀粉来源的端元版本
+- `preprocessing/preprocess.py`
+  当前已支持 `als_l2`、`als_max`、`none_l2` 三种协议
+- `preprocessing/endmembers.py`
+  端元谱加载，可按预处理协议构建端元矩阵，支持多淀粉来源
 
 #### 经典解混方法
 
-- `src/demixing/evaluation/classical_models.py`
-  当前更偏分类基线，若改动不大可直接扩展
-- `src/demixing/evaluation/classical_unmixing.py`
-  若希望职责清晰，建议新增，集中实现`CLS/OLS`、`NNLS`、`FCLS`、`NMF`
+- `unmixing/unmix.py`
+  集中实现 `CLS/OLS`、`NNLS`、`FCLS` 与盲 `NMF`，统一输出：
 
-建议在这个模块中统一输出：
-
-- 每像素丰度矩阵
-- 每像素重构谱
-- 每像素重构误差
-- 每张面扫图的丰度图
-- 样本级汇总表
+  - 每像素丰度矩阵
+  - 每像素重构谱
+  - 每像素重构误差
+  - 每张面扫图的丰度图
+  - 样本级汇总表
 
 #### 合成数据生成
 
-- `scripts/data/generate_synthetic_unmixing_dataset.py`
-  建议新增，用端元谱生成有真值的二维混合数据
-
-建议输出到：
-
-- `outputs/synthetic_unmixing/`
+- `synthetic/generator.py` + `synthetic/generate_dataset.py`
+  用端元谱生成有像素级真值的二维混合数据，输出到 `outputs/synthetic_unmixing/`
 
 #### 正式实验脚本
 
-- `scripts/experiments/nnls_unmixing/run_synthetic_method_comparison.py`
+- `experiments/run_synthetic_method_comparison.py`
   合成真值数据上的四方法对比
-- `scripts/experiments/nnls_unmixing/run_real_unmixing_single.py`
+- `experiments/run_real_unmixing_single.py`
   真实数据上的解混、重构和空间图输出
 
-建议输出到：
-
-- `outputs/experiments/classical_unmixing/`
+实验产物默认输出到 `outputs/experiments/`、`outputs/<scenario>/` 等场景目录。
 
 #### 可视化
 
-- `src/demixing/visualization/plots.py`
-  扩展丰度热图、端元对比图、重构残差图和样本级汇总图
+- `visualization/`
+  按图类型分子目录（abundance / residual / reconstruction / method_comparison / preprocessing），顶层 re-export 8 个绘图函数
 
 ## 8.方法实现顺序
 
@@ -339,53 +322,57 @@
 
 已完成文件：
 
-- `src/demixing/data/endmembers.py`
-- `src/demixing/data/__init__.py`
+- `preprocessing/endmembers.py`
 
 已具备能力：
 
-- 加载`PE`、`PP`和不同来源淀粉纯谱
+- 加载 `PE`、`PP` 和不同来源淀粉纯谱
 - 复用现有预处理流程，生成标准波数轴上的端元谱
-- 构建供`OLS`、`NNLS`、`FCLS`使用的端元矩阵
+- 构建供 `OLS`、`NNLS`、`FCLS` 使用的端元矩阵
 
 ### 11.2经典解混核心模块
 
 已完成文件：
 
-- `src/demixing/evaluation/classical_unmixing.py`
-- `src/demixing/evaluation/__init__.py`
+- `unmixing/unmix.py`
 
 已具备能力：
 
-- `OLS`求解
-- `NNLS`求解
-- `FCLS`求解
-- 盲解混`NMF`
-- `NMF`结果自动对齐到参考纯谱名
+- `OLS` 求解
+- `NNLS` 求解
+- `FCLS` 求解
+- 盲解混 `NMF`
+- `NMF` 结果自动对齐到参考纯谱名
 - 统一输出丰度、系数、重构谱、残差指标
 
 ### 11.3可视化模块
 
 已完成文件：
 
-- `src/demixing/visualization/classical_unmixing.py`
-- `src/demixing/visualization/__init__.py`
+- `visualization/abundance/abundance_maps.py`
+- `visualization/residual/residual_map.py`
+- `visualization/reconstruction/reconstruction.py`
+- `visualization/method_comparison/method_bars.py`
+- `visualization/preprocessing/spectrum.py`
+- `visualization/_common.py`
+
+顶层 `visualization/__init__.py` 一次性 re-export 全部 8 个绘图函数。
 
 已具备能力：
 
 - 丰度热图
 - 残差热图
 - 输入谱与重构谱对比图
-- 方法残差柱状图
-- 方法平均丰度柱状图
+- 方法残差柱状图与方法平均丰度柱状图
+- 预处理协议三视图与丰度网格
 
 ### 11.4真实数据实验脚本
 
 已完成文件：
 
-- `scripts/experiments/nnls_unmixing/run_real_unmixing_single.py`
-- `scripts/experiments/nnls_unmixing/run_real_method_comparison.py`
-- `scripts/experiments/nnls_unmixing/run_batch_method_comparison.py`
+- `experiments/run_real_unmixing_single.py`
+- `experiments/run_real_method_comparison.py`
+- `experiments/run_batch_method_comparison.py`
 
 已具备能力：
 
@@ -468,25 +455,25 @@
 
 接下来必须补上的代码方向：
 
-- 把`src/demixing/data/preprocess.py`改成协议化预处理
-- 新增预处理协议比较脚本
-- 在单图、多图和合成真值实验里，把“预处理协议”和“解混算法”拆成两层对比
+- 把 `preprocessing/preprocess.py` 持续保持「协议化」入口，避免硬编码
+- 新增预处理协议比较脚本（`experiments/run_*_preprocessing_comparison.py` 已存在）
+- 在单图、多图和合成真值实验里，把「预处理协议」和「解混算法」拆成两层对比
 
 ## 14.当前新增进展补记
 
 在前面文档基础上，当前又新增了下面这些落实：
 
-- 已把默认预处理主线切到`ALS + L2`
-- 旧的`ALS + max`没有删，继续保留作后续对比
-- `src/demixing/data/preprocess.py`已经支持`als_l2`、`als_max`、`none_l2`
-- `src/demixing/data/endmembers.py`已经支持按预处理协议加载端元
-- 已新增`scripts/experiments/nnls_unmixing/run_real_preprocessing_comparison.py`，可固定解混方法对比不同预处理协议
-- 已新增`scripts/experiments/nnls_unmixing/run_batch_preprocessing_comparison.py`，可在多张典型图上批量汇总预处理对比结果
-- 已新增`src/demixing/data/synthetic_unmixing.py`和`scripts/data/generate_synthetic_unmixing_dataset.py`，用于生成有真值的二维合成解混数据
-- 已新增`scripts/experiments/nnls_unmixing/run_synthetic_method_comparison.py`，用于在合成真值数据上比较`OLS/NNLS/FCLS/NMF`
+- 已把默认预处理主线切到 `ALS + L2`
+- 旧的 `ALS + max` 没有删，继续保留作后续对比
+- `preprocessing/preprocess.py` 已经支持 `als_l2`、`als_max`、`none_l2`
+- `preprocessing/endmembers.py` 已经支持按预处理协议加载端元
+- 已新增 `experiments/run_real_preprocessing_comparison.py`，可固定解混方法对比不同预处理协议
+- 已新增 `experiments/run_batch_preprocessing_comparison.py`，可在多张典型图上批量汇总预处理对比结果
+- 已新增 `synthetic/generator.py` 和 `synthetic/generate_dataset.py`，用于生成有真值的二维合成解混数据
+- 已新增 `experiments/run_synthetic_method_comparison.py`，用于在合成真值数据上比较 `OLS/NNLS/FCLS/NMF`
 - 合成真值评估口径已分层为 orig/proj/重构三层指标（v9 校准）
-- 已新增`scripts/experiments/nnls_unmixing/run_generalization_batch.py`，用于在`dataset/泛化/`不同淀粉来源上做批量解混评估
-- 实验脚本按路线归档：分类基线统一移到`scripts/experiments/legacy_classification/`，NNLS 解混路线统一移到`scripts/experiments/nnls_unmixing/`
+- 已新增 `experiments/run_generalization_batch.py`，用于在 `dataset/泛化/` 不同淀粉来源上做批量解混评估
+- 仓库结构已整体重构：主线代码从 `src/demixing/` 与 `scripts/` 平铺到 `preprocessing/`、`synthetic/`、`unmixing/`、`visualization/`、`experiments/`、`utils/` 六个顶层目录；旧分类路线整体归档到 `archive/legacy_classification/`
 
 当前还需要继续补强的重点：
 
