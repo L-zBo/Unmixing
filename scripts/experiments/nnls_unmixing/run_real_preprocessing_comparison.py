@@ -21,7 +21,13 @@ from demixing.evaluation.classical_unmixing import (
     blind_nmf_unmix_spectra,
     unmix_spectra,
 )
-from demixing.visualization.classical_unmixing import plot_method_abundance_bars, plot_method_metric_bars
+from demixing.visualization.classical_unmixing import (
+    plot_method_abundance_bars,
+    plot_method_metric_bars,
+    plot_protocol_abundance_grid,
+    plot_protocol_spectrum_triptych,
+    plot_single_spectrum_preprocessing,
+)
 
 
 PE_STARCH_DIR = "PE+\u6dc0\u7c89"
@@ -114,6 +120,8 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     rows: list[dict[str, object]] = []
+    protocol_prediction_frames: dict[str, pd.DataFrame] = {}
+    protocol_curve_samples: dict[str, dict[str, np.ndarray]] = {}
     for protocol_name in protocols:
         metadata_df, spectra = load_mapping_spectra(
             input_root=args.input_root,
@@ -154,7 +162,27 @@ def main() -> None:
             component_names = result.component_names
 
         prediction_df.to_csv(output_dir / f"{args.method}_{protocol_name}_pixels.csv", index=False, encoding="utf-8-sig")
+        protocol_prediction_frames[protocol_name] = prediction_df
         rows.append(summarize_protocol(protocol_name, args.method, component_names, prediction_df))
+
+        first_rel = metadata_df.iloc[0]["relative_path"]
+        raw_record = load_spectrum(args.input_root / first_rel, args.input_root)
+        axis = raw_record.axis
+        raw = raw_record.intensity.astype(np.float32)
+        _, corrected, normalized, _ = preprocess_record(raw_record, protocol_name=protocol_name)
+        protocol_curve_samples[protocol_name] = {
+            "raw": raw,
+            "corrected": corrected,
+            "normalized": normalized,
+        }
+        plot_single_spectrum_preprocessing(
+            axis=axis,
+            raw=raw,
+            corrected=corrected,
+            normalized=normalized,
+            output_path=output_dir / f"{protocol_name}_single_spectrum_preprocessing.png",
+            title=f"{protocol_name} single-spectrum preprocessing",
+        )
 
     summary_df = pd.DataFrame(rows)
     summary_df.to_csv(output_dir / f"{args.method}_preprocessing_comparison_summary.csv", index=False, encoding="utf-8-sig")
@@ -171,6 +199,18 @@ def main() -> None:
         component_names=list(components),
         output_path=output_dir / f"{args.method}_preprocessing_abundance_comparison.png",
         title=f"{args.method.upper()} preprocessing abundance comparison",
+    )
+    plot_protocol_spectrum_triptych(
+        axis=axis,
+        protocol_curves=protocol_curve_samples,
+        output_path=output_dir / f"{args.method}_protocol_spectrum_triptych.png",
+        title="Protocol comparison: raw / corrected / normalized",
+    )
+    plot_protocol_abundance_grid(
+        protocol_prediction_frames=protocol_prediction_frames,
+        component_names=list(components),
+        output_path=output_dir / f"{args.method}_protocol_abundance_grid.png",
+        title=f"{args.method.upper()} abundance maps across preprocessing protocols",
     )
     summary_json = {
         "sample_dir": args.sample_dir.as_posix(),
