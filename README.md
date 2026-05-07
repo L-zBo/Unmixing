@@ -57,9 +57,11 @@ Unmixing/
 ├── README.md                  # 项目总览（本文件）
 ├── AGENTS.md                  # 协作与提交规范
 ├── 项目结构说明.md            # 仓库结构详解
+├── 论证总览.md                # PPT / 论文图表索引与引用映射（写 PPT / 论文时看这份）
 ├── docs/                      # 详细路线说明
 │   ├── nnls_unmixing_flow.md  # 主线：NNLS 解混落地说明
-│   └── legacy_classification_flow.md  # 旧路线：家族分类 + 组级空间评估
+│   ├── legacy_classification_flow.md  # 旧路线：家族分类 + 组级空间评估
+│   └── thesis_chapter1_figures.md  # 论证统稿（200~400 字读图说明 + 论文写作 checklist）
 ├── preprocessing/             # 端元加载、协议化预处理（als_l2/als_max/none_l2）
 │   ├── endmembers.py
 │   ├── preprocess.py

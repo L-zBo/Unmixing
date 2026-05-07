@@ -1,19 +1,17 @@
-"""Build two PPT-/thesis-ready overall summary tables.
+"""Build two overall summary tables aggregating existing v8 / v9 / v13 / v14 CSVs.
 
-Aggregates existing v8 / v9 / v13 / v14 CSVs into:
-
+Outputs
+-------
 - ``outputs/showcase/method_comparison/method_overall_summary.csv``
   Per (dimension, metric, direction) row × (OLS / NNLS / FCLS / NMF) columns,
-  with a ``best_method`` column highlighting which method wins each row.
-  Backs the demixing-side论文级 / PPT 级 "整体表现汇总表".
+  with ``best_method`` automatically populated from the direction.
 
 - ``outputs/showcase/protocol_consistency/preprocessing_overall_summary.csv``
   Per protocol (als_l2 / als_max / none_l2) × (R² / CV / fingerprint retention)
-  columns. Backs the preprocessing-side汇总表.
+  columns.
 
-This script is read-only on the source CSVs. It writes only the two summary
-tables. Run after run_synthetic_metric_plot.py so that v9 csv has the ``orig_r2``
-column.
+Read-only on the source CSVs. Run after ``run_synthetic_metric_plot.py`` so
+that the v9 csv has the ``orig_r2`` column.
 """
 from __future__ import annotations
 
@@ -30,19 +28,16 @@ if str(ROOT) not in sys.path:
 
 SHOWCASE = ROOT / "outputs/showcase"
 
-# Demixing-side sources
 V9_SYNTHETIC = SHOWCASE / "synthetic_truth/synthetic_method_comparison_summary.csv"
 V8_REAL_BATCH = SHOWCASE / "method_comparison/batch_method_comparison_summary.csv"
 V13_CONSTRAINT = SHOWCASE / "method_constraints/method_constraint_summary.csv"
 V13_NMF_SAM = SHOWCASE / "method_constraints/nmf_endmember_sam.csv"
 V13_NNLS_SPARSITY = SHOWCASE / "method_constraints/nnls_sparsity_summary.csv"
 
-# Preprocessing-side sources
 V14_R2 = SHOWCASE / "protocol_consistency/protocol_reconstruction_r2_summary.csv"
 V14_CONSISTENCY = SHOWCASE / "protocol_consistency/protocol_consistency_summary.csv"
 V14_RETENTION = SHOWCASE / "protocol_consistency/fingerprint_retention_summary.csv"
 
-# Outputs
 DEMIX_OUT = SHOWCASE / "method_comparison/method_overall_summary.csv"
 PREPROC_OUT = SHOWCASE / "protocol_consistency/preprocessing_overall_summary.csv"
 

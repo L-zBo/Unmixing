@@ -1,24 +1,5 @@
 """Diagnose constraint behavior of OLS / NNLS / FCLS / NMF on real Raman mappings.
 
-Targets two PPT-grade claims that the existing showcase data can't yet prove:
-
-1. **OLS gives unphysical negative abundances; NNLS does not.**
-   Existing batch_method_comparison aggregates *means* and they happen to be
-   positive on baseline endmember setups (OLS naturally non-negative). This
-   experiment reports the **per-pixel** fraction of negative coefficients,
-   focusing on the matched-endmember 泛化 scenarios where OLS does drift
-   negative (see preliminary findings in conversation 2026-05-06).
-
-2. **NMF learns endmembers that drift away from the physical references.**
-   NMF's reconstruction R² > 0.99 looks great, but its abundance estimates of
-   PE / PP are systematically inflated by 1.5x – 2.5x. This script measures
-   the spectral angle (SAM) between the aligned NMF endmember and the physical
-   reference pure spectrum — a direct readout of "how non-physical is the
-   endmember NMF picked".
-
-A bonus 3rd output:
-- NNLS active-endmember count per pixel (sparsity proxy for interpretability).
-
 Outputs
 -------
 - ``method_constraint_summary.csv``: per (label, method, component) row with

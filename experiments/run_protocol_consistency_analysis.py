@@ -1,19 +1,5 @@
 """Compare ALS+L2 / ALS+max / none+L2 on consistency and fingerprint-peak retention.
 
-Targets the second PPT claim ("ALS+L2 is the best preprocessing combination")
-where reconstruction-R² alone cannot tell L2 from max (both 0.9153 — see
-preliminary findings 2026-05-06). Two new lines of evidence:
-
-1. **Cross-pixel abundance consistency (CV)**: under each protocol, run NNLS on
-   real mappings and compute the per-component coefficient of variation
-   (std/mean) across pixels. Lower CV = more consistent recovery. L2-based
-   protocols are expected to be more robust than max (literature: MDPI 2025).
-2. **Fingerprint-peak retention**: in normalized spectra, measure the peak
-   intensity in a window around literature-known fingerprint wavenumbers
-   (PE 1062/1295, PP 808/841, starch 478/1124 cm-1) and compare across
-   protocols. L2 normalization preserves relative peak intensities; max
-   normalization distorts them when a single peak dominates.
-
 Outputs
 -------
 - ``protocol_consistency_summary.csv``: per (sample, component, protocol) row
@@ -76,7 +62,7 @@ CONSISTENCY_PRESETS: list[dict[str, object]] = [
     },
 ]
 
-# Literature fingerprint peaks (cm-1). Sources cited in conversation 2026-05-06.
+# Literature fingerprint peaks (cm-1).
 FINGERPRINT_PEAKS: dict[str, tuple[int, ...]] = {
     "PE": (1062, 1295),
     "PP": (808, 841),

@@ -71,14 +71,9 @@ def _per_component_pearson(truth: np.ndarray, prediction: np.ndarray) -> float:
 
 
 def abundance_metrics(truth: np.ndarray, prediction: np.ndarray, prefix: str) -> dict[str, float]:
-    """Abundance accuracy metrics.
+    """Abundance accuracy metrics: mae / rmse / pearson_r / r2_debug.
 
-    PPT-ready: ``mae``, ``rmse``, ``pearson_r`` (per-component Pearson, averaged).
-    Debug-only: ``r2_debug`` — classical 1 - SSres/SStot. **Caveat**: when the
-    truth is a smoothed random field with tiny variance (our synthetic case),
-    SStot is small and r2_debug collapses to large negative values that do NOT
-    reflect prediction quality. Do NOT use ``r2_debug`` on slides; cite
-    ``mae`` / ``rmse`` / ``pearson_r`` instead.
+    r2_debug is unstable on low-variance truths; prefer pearson_r.
     """
     error = prediction - truth
     mae = float(np.mean(np.abs(error)))
@@ -210,20 +205,19 @@ def main() -> None:
     metric_glossary = {
         "orig_mae/orig_rmse": (
             "估计丰度先 clip 到非负再按行归一化为相对占比，与原始 0..1 像素丰度真值直接比较；"
-            "解释为「相对组分占比恢复」，与丰度图视觉直觉对齐。**PPT 主推这两个**。"
+            "解释为「相对组分占比恢复」，与丰度图视觉直觉对齐。"
         ),
         "orig_pearson_r": (
             "原始空间下，逐组分 Pearson 相关系数后取均值（0..1 越大越好）；"
-            "对真值方差不敏感，**适合 PPT**。"
+            "对真值方差不敏感。"
         ),
         "proj_mae/proj_rmse/proj_pearson_r": (
             "把估计系数与「原始丰度 / 预处理后(corrected)谱的 L2 范数」的理论投影真值做对比；"
-            "解释为「预处理归一化空间内的系数恢复」，无需对方法做行归一化，能直接区分各方法在归一化谱上的精度。"
+            "解释为「预处理归一化空间内的系数恢复」，无需对方法做行归一化。"
         ),
         "*_r2_debug": (
-            "调试参考用 R² = 1 - SSres/SStot。**警告**：合成真值是高斯平滑随机场（方差极小），"
-            "SStot 很小导致 R² 出现 -20 ~ -150 的极端负值，**不反映预测质量**。**严禁放进 PPT**——"
-            "用 mae/rmse/pearson_r 替代。"
+            "经典 R² = 1 - SSres/SStot；当真值方差极小时塌陷为大幅负值，"
+            "用 mae / rmse / pearson_r 替代。"
         ),
         "mean_residual_rmse": "归一化空间内每像素重构 RMSE 的平均值。",
         "mean_sam_rad": "归一化空间内输入谱与重构谱的逐像素 SAM 弧度的平均值。",

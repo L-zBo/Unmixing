@@ -6,7 +6,7 @@ band above the data and adjacent labels (within 90 cm-1 on the x-axis) are
 staggered into multiple rows so they never overlap. Each label is connected to
 its peak by a thin leader line.
 
-Sources for peak positions cited in conversation 2026-05-06:
+Peak positions:
 - PE 1062 / 1130 / 1295 / 1440 cm-1 (Sage 2021)
 - PP 808 / 841 / 1330 cm-1 (RSC Analyst 2024)
 - starch 478 / 1124 cm-1 (Raman of glucan backbone, common literature)

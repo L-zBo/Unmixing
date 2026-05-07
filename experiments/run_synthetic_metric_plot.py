@@ -1,15 +1,15 @@
 """Plot RMSE / MAE / R² (Pearson²) bars from the v9 synthetic-truth summary.
 
 Reads the v9 ``synthetic_method_comparison_summary.csv``, augments it with
-``orig_r2`` / ``proj_r2`` columns (R² = Pearson²; the existing ``r2_debug``
-column is documented as not slide-ready in run_synthetic_method_comparison.py),
-and writes a 3-panel bar chart (MAE / RMSE / R²) for direct PPT use.
+``orig_r2`` / ``proj_r2`` columns (R² = Pearson²), and writes a 3-panel bar
+chart.
 
-Read-only on dataset/. Reads/writes:
-- outputs/experiments/formal_v9_synthetic_method_comparison/synthetic_method_comparison_summary.csv (in-place augment)
-- outputs/experiments/formal_v9_synthetic_method_comparison/synthetic_metric_comparison.png (new)
-- outputs/showcase/synthetic_truth/synthetic_method_comparison_summary.csv (mirror)
-- outputs/showcase/synthetic_truth/synthetic_metric_comparison.png (mirror)
+Outputs
+-------
+- ``outputs/experiments/formal_v9_synthetic_method_comparison/synthetic_method_comparison_summary.csv`` (in-place augment)
+- ``outputs/experiments/formal_v9_synthetic_method_comparison/synthetic_metric_comparison.png`` (new)
+- ``outputs/showcase/synthetic_truth/synthetic_method_comparison_summary.csv`` (mirror)
+- ``outputs/showcase/synthetic_truth/synthetic_metric_comparison.png`` (mirror)
 """
 from __future__ import annotations
 
