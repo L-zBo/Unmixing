@@ -2,22 +2,22 @@
 
 本目录的可视化代码**按图类型细分子目录**——每种图独立模块，方便维护和扩展。
 
-## 📁 子目录结构（C5 阶段拆分）
+## 📁 子目录结构
 
-| 子目录 | 用途 | 计划包含函数 |
-|--------|------|------------|
+| 子目录 | 用途 | 包含函数 |
+|--------|------|----------|
 | `abundance/` | 丰度热图 | `plot_abundance_maps` |
-| `method_comparison/` | 方法横向对比柱图 | `plot_method_metric_bars`, `plot_method_abundance_bars` |
-| `preprocessing/` | 预处理协议对比 | `plot_single_spectrum_preprocessing`, `plot_protocol_spectrum_triptych`, `plot_protocol_abundance_grid` |
-| `reconstruction/` | 输入谱与重构谱对比 | `plot_reconstruction_examples` |
 | `residual/` | 残差空间分布 | `plot_residual_map` |
+| `reconstruction/` | 输入谱与重构谱对比 | `plot_reconstruction_examples` |
+| `method_comparison/` | 方法横向对比 + 约束诊断 | `plot_method_metric_bars`, `plot_method_abundance_bars`, `plot_negative_abundance_pct_bars`, `plot_nmf_endmember_sam_bars` |
+| `preprocessing/` | 预处理协议对比 + 端元指纹峰 | `plot_single_spectrum_preprocessing`, `plot_protocol_spectrum_triptych`, `plot_protocol_abundance_grid`, `plot_endmember_fingerprints`, `plot_fingerprint_retention_bars`, `plot_protocol_cv_bars`, `plot_protocol_reconstruction_r2_bars` |
 
 ## 📁 顶层文件
 
 | 文件名 | 功能 | 状态 |
 |--------|------|------|
-| `_common.py` | 共用工具（`_ensure_parent`, `_coordinate_frame`, `_grid_from_frame`） | 🚧 C5 拆出 |
-| `__init__.py` | 顶层 re-export 所有函数（保兼容） | ✅ |
+| `_common.py` | 共用工具（`_ensure_parent`, `_coordinate_frame`, `_grid_from_frame`） | ✅ |
+| `__init__.py` | 顶层 re-export 全部 14 个绘图函数（保兼容） | ✅ |
 | `README.md` | 本文档 | ✅ |
 
 ---
@@ -33,10 +33,6 @@ from visualization.abundance.abundance_maps import plot_abundance_maps
 ```
 
 ---
-
-## 🚧 当前状态
-
-C3 阶段：顶层目录已建，模块拆分将在 C5 完成。
 
 ## 📐 扩展规则
 

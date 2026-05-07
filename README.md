@@ -38,7 +38,10 @@ Unmixing/
 │   ├── run_synthetic_method_comparison.py
 │   ├── run_real_preprocessing_comparison.py
 │   ├── run_batch_preprocessing_comparison.py
-│   └── run_generalization_batch.py
+│   ├── run_generalization_batch.py
+│   ├── run_endmember_fingerprint_plot.py
+│   ├── run_method_constraint_diagnostics.py
+│   └── run_protocol_consistency_analysis.py
 ├── utils/                     # 通用 IO 工具（save_predictions / save_experiment_summary）
 ├── archive/                   # 历史归档（不参与主线）
 │   ├── legacy_classification/ # 旧家族分类路线（v1~v5、external_test）
@@ -48,7 +51,8 @@ Unmixing/
 └── outputs/                   # 实验产物（git 忽略）
     ├── preprocessing/
     ├── synthetic_unmixing/
-    └── experiments/
+    ├── experiments/
+    └── showcase/              # 从 experiments/ 里筛出的"展示型结果包"
 ```
 
 ## 主线入口速查
@@ -62,6 +66,9 @@ Unmixing/
 | 单图三协议对比 | `experiments/run_real_preprocessing_comparison.py` | `outputs/real_preprocessing_comparison/` |
 | 多图三协议批量 | `experiments/run_batch_preprocessing_comparison.py` | `outputs/batch_preprocessing_comparison/` |
 | 跨淀粉源泛化 | `experiments/run_generalization_batch.py` | `outputs/generalization_batch/` |
+| 端元指纹峰可视化 | `experiments/run_endmember_fingerprint_plot.py` | `outputs/experiments/formal_v15_endmember_fingerprint/` |
+| 方法约束诊断（OLS 负值率 / NMF 端元 SAM / NNLS 稀疏度） | `experiments/run_method_constraint_diagnostics.py` | `outputs/experiments/formal_v13_method_constraint_diagnostics/` |
+| 协议一致性（CV + 指纹峰保留） | `experiments/run_protocol_consistency_analysis.py` | `outputs/experiments/formal_v14_protocol_consistency/` |
 
 详细说明见 [docs/nnls_unmixing_flow.md](docs/nnls_unmixing_flow.md)。
 
@@ -70,7 +77,7 @@ Unmixing/
 - 端元加载与协议化预处理：`preprocessing/endmembers.py`、`preprocessing/preprocess.py`
 - 经典解混（OLS / NNLS / FCLS / NMF）：`unmixing/unmix.py`
 - 合成真值数据生成：`synthetic/generator.py` + `synthetic/generate_dataset.py`
-- 解混可视化（丰度热图 / 残差 / 重构 / 方法对比 / 协议对比）：`visualization/`（顶层 re-export 8 个绘图函数）
+- 解混可视化（丰度热图 / 残差 / 重构 / 方法对比 / 协议对比 / 指纹峰）：`visualization/`（顶层 re-export 14 个绘图函数）
 
 ## 顶层包 import 用法
 

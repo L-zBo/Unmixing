@@ -217,7 +217,7 @@
 #### 可视化
 
 - `visualization/`
-  按图类型分子目录（abundance / residual / reconstruction / method_comparison / preprocessing），顶层 re-export 8 个绘图函数
+  按图类型分子目录（abundance / residual / reconstruction / method_comparison / preprocessing），顶层 re-export 14 个绘图函数
 
 ## 8.方法实现顺序
 
@@ -356,7 +356,7 @@
 - `visualization/preprocessing/spectrum.py`
 - `visualization/_common.py`
 
-顶层 `visualization/__init__.py` 一次性 re-export 全部 8 个绘图函数。
+顶层 `visualization/__init__.py` 一次性 re-export 全部 14 个绘图函数。
 
 已具备能力：
 
@@ -366,22 +366,41 @@
 - 方法残差柱状图与方法平均丰度柱状图
 - 预处理协议三视图与丰度网格
 
-### 11.4真实数据实验脚本
+### 11.4实验脚本（截至 v15）
 
-已完成文件：
+已完成的实验脚本（按维度分组）：
 
-- `experiments/run_real_unmixing_single.py`
-- `experiments/run_real_method_comparison.py`
-- `experiments/run_batch_method_comparison.py`
+**真实面扫图主线**
 
-已具备能力：
+- `experiments/run_real_unmixing_single.py` — 单张图跑`OLS / NNLS / FCLS / NMF`
+- `experiments/run_real_method_comparison.py` — 单图四方法详细对比（含图）
+- `experiments/run_batch_method_comparison.py` — 多张典型图四方法批量对比
 
-- 在单张真实面扫图上运行`OLS/NNLS/FCLS/NMF`
-- 输出每像素丰度表、端元表和摘要json
-- 输出单图丰度热图、残差图和重构示例图
-- 在单张图上汇总四方法对比结果
-- 在多张典型图上批量汇总四方法对比结果
+**合成真值定量**
+
+- `experiments/run_synthetic_method_comparison.py` — 合成真值上四方法定量对比
+
+**预处理协议对比**
+
+- `experiments/run_real_preprocessing_comparison.py` — 单图三协议对比
+- `experiments/run_batch_preprocessing_comparison.py` — 多图三协议批量
+
+**泛化稳定性**
+
+- `experiments/run_generalization_batch.py` — 跨淀粉来源泛化批量评估
+
+**PPT 证据补强（v13~v15）**
+
+- `experiments/run_endmember_fingerprint_plot.py` — 端元纯谱 + 文献指纹峰标注
+- `experiments/run_method_constraint_diagnostics.py` — 逐像素负丰度率 / `NMF`端元`SAM` / `NNLS`稀疏度
+- `experiments/run_protocol_consistency_analysis.py` — 三协议下逐像素`CV` + 指纹峰保留率
+
+通用能力：
+
+- 输出每像素丰度表、端元表、摘要`json`
+- 丰度热图、残差图、重构示例图、方法对比柱图
 - 支持`--limit`小样本调试
+- 主线产物镜像到`outputs/showcase/<场景>/`
 
 ### 11.5当前默认输出位置
 
@@ -390,16 +409,22 @@
 - `outputs/experiments/formal_v6_classical_unmixing_real/`
 - `outputs/experiments/formal_v7_method_comparison_real/`
 - `outputs/experiments/formal_v8_batch_method_comparison/`
+- `outputs/experiments/formal_v9_synthetic_method_comparison/`
+- `outputs/experiments/formal_v10_preprocessing_comparison_real/`
+- `outputs/experiments/formal_v11_batch_preprocessing_comparison/`
+- `outputs/experiments/formal_v12_generalization_batch/`
+- `outputs/experiments/formal_v13_method_constraint_diagnostics/`
+- `outputs/experiments/formal_v14_protocol_consistency/`
+- `outputs/experiments/formal_v15_endmember_fingerprint/`
+- `outputs/showcase/`（从上述目录筛出的展示型结果包）
 
 ### 11.6当前仍未完成的部分
 
-还没落地但后面必须补的内容：
+当前`PPT`阶段（2026-05-06 起）还要补强的内容：
 
-- 合成真值数据生成脚本
-- 基于合成真值的定量评估脚本
-- 更系统的端元匹配/命名规则
-- 泛化数据批量评估
-- 面向论文直接出图的终版汇总脚本
+- 三类`v13 ~ v15`证据图的视觉小瑕疵兜底（文字交叠 / 排版细节）
+- 按`PPT`选图清单从`outputs/showcase/`二次精选
+- 合成真值评估指标进一步校准（归一化后丰度真值的解释口径）
 
 ## 13.补充约束：预处理与可解释性主线
 
@@ -474,6 +499,8 @@
 - 合成真值评估口径已分层为 orig/proj/重构三层指标（v9 校准）
 - 已新增 `experiments/run_generalization_batch.py`，用于在 `dataset/泛化/` 不同淀粉来源上做批量解混评估
 - 仓库结构已整体重构：主线代码从 `src/demixing/` 与 `scripts/` 平铺到 `preprocessing/`、`synthetic/`、`unmixing/`、`visualization/`、`experiments/`、`utils/` 六个顶层目录；旧分类路线整体归档到 `archive/legacy_classification/`
+- 已新增`v13 / v14 / v15`三类`PPT`证据脚本：方法约束诊断（`run_method_constraint_diagnostics.py`）、协议一致性（`run_protocol_consistency_analysis.py`）、端元指纹峰图（`run_endmember_fingerprint_plot.py`），分别对应`outputs/showcase/method_constraints / protocol_consistency / endmember_fingerprint/`三个展示子目录
+- `visualization/method_comparison/`新增`constraint_diagnostics.py`、`visualization/preprocessing/`新增`endmember_fingerprint.py / protocol_consistency.py`，顶层`__init__.py`同步`re-export`，当前共`14`个绘图函数
 
 当前还需要继续补强的重点：
 

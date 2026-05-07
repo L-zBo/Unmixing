@@ -99,6 +99,17 @@
 - `plots.py`
   旧路线相关图表输出逻辑。
 
+### `archive/legacy_data_pipeline/`
+
+这部分是旧家族分类路线遗留的"样本清单 + 质量过滤"工具集，主线`NNLS`解混完全不依赖。
+
+包含两块：
+
+- `archive/legacy_data_pipeline/scripts/build_quality_manifest.py` / `build_sample_manifest.py`
+- `archive/legacy_data_pipeline/modules/manifest.py` / `quality.py`
+
+详细说明见 [`archive/legacy_data_pipeline/README.md`](legacy_data_pipeline/README.md)。
+
 ### `archive/legacy_training/`
 
 这部分是独立训练入口归档。
@@ -120,20 +131,18 @@
 
 下面这些仍然属于当前主线，不应该继续往archive里塞：
 
-- `src/demixing/data/`
-  里的主线预处理、端元、合成真值代码
-
-- `src/demixing/evaluation/classical_unmixing.py`
-  主线经典解混实现
-
-- `src/demixing/visualization/classical_unmixing.py`
-  主线可视化
-
-- `scripts/data/generate_synthetic_unmixing_dataset.py`
-  主线合成真值入口
-
-- `scripts/experiments/nnls_unmixing/`
-  当前主线实验入口
+- `preprocessing/preprocess.py` / `preprocessing/endmembers.py` / `preprocessing/preprocess_dataset.py`
+  端元加载 + 协议化预处理
+- `unmixing/unmix.py`
+  主线经典解混（`OLS / NNLS / FCLS / NMF`）
+- `synthetic/generator.py` / `synthetic/generate_dataset.py`
+  合成真值数据生成
+- `visualization/`
+  按图类型分子目录的主线可视化模块
+- `experiments/run_*.py`
+  当前主线实验入口（10 个脚本）
+- `utils/io.py`
+  统一实验产物落盘格式
 
 ## 4.当前使用建议
 
@@ -141,9 +150,9 @@
 
 - `README.md`
 - `docs/nnls_unmixing_flow.md`
-- `scripts/experiments/nnls_unmixing/`
-- `src/demixing/data/`
-- `src/demixing/evaluation/classical_unmixing.py`
+- `experiments/`
+- `preprocessing/preprocess.py` / `preprocessing/endmembers.py`
+- `unmixing/unmix.py`
 
 只有在下面这些场景，才需要回头看archive：
 

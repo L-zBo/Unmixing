@@ -13,6 +13,9 @@
 | `run_real_preprocessing_comparison.py` | 单张图上对比三协议（als_l2/als_max/none_l2） | `outputs/real_preprocessing_comparison/` |
 | `run_batch_preprocessing_comparison.py` | 多张图上批量对比三协议 | `outputs/batch_preprocessing_comparison/` |
 | `run_generalization_batch.py` | 跨淀粉来源（展艺/新良/甘汁园）泛化批量评估 | `outputs/generalization_batch/` |
+| `run_endmember_fingerprint_plot.py` | 三端元纯谱叠加 + 文献指纹峰标注（PPT 物理基础页） | `outputs/experiments/formal_v15_endmember_fingerprint/` |
+| `run_method_constraint_diagnostics.py` | 逐像素负丰度率 / NMF 端元 SAM / NNLS 稀疏度 | `outputs/experiments/formal_v13_method_constraint_diagnostics/` |
+| `run_protocol_consistency_analysis.py` | 三协议下逐像素 CV + 指纹峰保留率 | `outputs/experiments/formal_v14_protocol_consistency/` |
 
 ## 三大实验维度
 
@@ -36,6 +39,14 @@
 入口：
 
 - `run_generalization_batch.py`
+
+### 4.PPT 证据补强（论证 NNLS / ALS+L2 选型）
+
+针对"NNLS 比对照更适合"和"ALS+L2 比对照更适合"两条 PPT 论点专门补的指标维度：
+
+- `run_endmember_fingerprint_plot.py` — 端元纯谱 + 文献指纹峰标注（物理基础页）
+- `run_method_constraint_diagnostics.py` — 逐像素负丰度率（OLS 暴露非物理性）/ NMF 端元 SAM / NNLS 稀疏度
+- `run_protocol_consistency_analysis.py` — 三协议下逐像素 CV + 指纹峰保留率（区分 L2 与 max）
 
 ## 推荐运行顺序
 
