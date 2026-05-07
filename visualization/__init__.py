@@ -9,6 +9,7 @@ from visualization.method_comparison import (
     plot_method_metric_bars,
     plot_negative_abundance_pct_bars,
     plot_nmf_endmember_sam_bars,
+    plot_synthetic_metric_subplots,
 )
 from visualization.preprocessing import (
     plot_endmember_fingerprints,
@@ -37,4 +38,5 @@ __all__ = [
     "plot_reconstruction_examples",
     "plot_residual_map",
     "plot_single_spectrum_preprocessing",
+    "plot_synthetic_metric_subplots",
 ]
