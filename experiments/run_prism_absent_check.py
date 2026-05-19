@@ -35,9 +35,12 @@ SAMPLES = [
 ]
 
 PRISM_CONFIGS = {
-    "PRISM_OLD": {"lambda_l2": 1e-4, "lambda_tv": 0.02, "tv_iters": 2},
-    "PRISM_MID": {"lambda_l2": 1e-2, "lambda_tv": 0.10, "tv_iters": 2},
-    "PRISM_AGG": {"lambda_l2": 1e-2, "lambda_tv": 0.20, "tv_iters": 1},
+    "PRISM_OLD_STD": {"lambda_l2": 1e-4, "lambda_tv": 0.02, "tv_iters": 2, "weight_mode": "endmember_std"},
+    "PRISM_OLD_UNI": {"lambda_l2": 1e-4, "lambda_tv": 0.02, "tv_iters": 2, "weight_mode": "uniform"},
+    "PRISM_MID_STD": {"lambda_l2": 1e-2, "lambda_tv": 0.10, "tv_iters": 2, "weight_mode": "endmember_std"},
+    "PRISM_MID_UNI": {"lambda_l2": 1e-2, "lambda_tv": 0.10, "tv_iters": 2, "weight_mode": "uniform"},
+    "PRISM_AGG_STD": {"lambda_l2": 1e-2, "lambda_tv": 0.20, "tv_iters": 1, "weight_mode": "endmember_std"},
+    "PRISM_AGG_UNI": {"lambda_l2": 1e-2, "lambda_tv": 0.20, "tv_iters": 1, "weight_mode": "uniform"},
 }
 
 
@@ -143,7 +146,7 @@ def main() -> None:
             prism = prism_unmix_spectra(
                 spectra, library=library, image_shape=(height, width),
                 lambda_l2=params["lambda_l2"], lambda_tv=params["lambda_tv"],
-                tv_iters=params["tv_iters"], weight_mode="endmember_std",
+                tv_iters=params["tv_iters"], weight_mode=params["weight_mode"],
             )
             row = evaluate(cfg_name, prism.abundances, prism.reconstructed, spectra,
                            component_names, absent, time.perf_counter() - t0)
