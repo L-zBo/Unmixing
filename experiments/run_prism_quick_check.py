@@ -29,8 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--synthetic-root", type=Path, default=DEFAULT_SYNTHETIC_ROOT)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--protocol", choices=sorted(PREPROCESS_PROTOCOLS), default=DEFAULT_PROTOCOL_NAME)
-    parser.add_argument("--lambda-l2", type=float, default=1e-4)
-    parser.add_argument("--lambda-tv", type=float, default=0.02)
+    parser.add_argument("--lambda-l2", type=float, default=1e-2)
+    parser.add_argument("--lambda-tv", type=float, default=0.10)
     parser.add_argument("--tv-iters", type=int, default=2)
     return parser.parse_args()
 
@@ -149,8 +149,7 @@ def main() -> None:
 
     t0 = time.perf_counter()
     prism_core = prism_unmix_spectra(spectra_norm, library=library,
-                                     image_shape=None, lambda_l2=args.lambda_l2,
-                                     weight_mode="endmember_std")
+                                     image_shape=None, lambda_l2=args.lambda_l2)
     rows.append(evaluate("prism_core_wL2", truth_flat, prism_core.abundances, prism_core.reconstructed,
                          spectra_norm, height, width, time.perf_counter() - t0))
 
@@ -159,8 +158,7 @@ def main() -> None:
                                      image_shape=(height, width),
                                      lambda_l2=args.lambda_l2,
                                      lambda_tv=args.lambda_tv,
-                                     tv_iters=args.tv_iters,
-                                     weight_mode="endmember_std")
+                                     tv_iters=args.tv_iters)
     rows.append(evaluate("prism_full_wL2_TV", truth_flat, prism_full.abundances, prism_full.reconstructed,
                          spectra_norm, height, width, time.perf_counter() - t0))
 

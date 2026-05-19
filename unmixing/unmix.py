@@ -346,9 +346,9 @@ def prism_unmix_spectra(
     library: EndmemberLibrary,
     *,
     image_shape: tuple[int, int] | None = None,
-    lambda_l2: float = 1e-4,
-    weight_mode: Literal["endmember_std", "uniform"] = "endmember_std",
-    lambda_tv: float = 0.02,
+    lambda_l2: float = 1e-2,
+    weight_mode: Literal["endmember_std", "uniform"] = "uniform",
+    lambda_tv: float = 0.10,
     tv_iters: int = 2,
     lambda_anchor_scale: float = 5.0,
 ) -> PrismUnmixingResult:

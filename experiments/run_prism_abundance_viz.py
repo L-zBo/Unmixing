@@ -35,8 +35,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--protocol", choices=sorted(PREPROCESS_PROTOCOLS), default=DEFAULT_PROTOCOL_NAME)
-    parser.add_argument("--lambda-l2", type=float, default=1e-4)
-    parser.add_argument("--lambda-tv", type=float, default=0.02)
+    parser.add_argument("--lambda-l2", type=float, default=1e-2)
+    parser.add_argument("--lambda-tv", type=float, default=0.10)
     parser.add_argument("--tv-iters", type=int, default=2)
     return parser.parse_args()
 
