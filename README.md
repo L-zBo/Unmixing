@@ -1,10 +1,10 @@
 # Unmixing —— 拉曼光谱解混项目
 
-本仓库面向 PE / PP / 淀粉 体系的拉曼面扫数据，主线方法为 NNLS 经典解混；早期家族分类基线代码与脚本已整体归档到 `archive/legacy_classification/`，作为历史参照保留。
+本仓库面向 PE / PP / 淀粉 体系的拉曼面扫数据，主线方法为 **PRISM**（Physics-Regularized Iterative Spectral Mixing，在 NNLS 基础上引入波段加权、L2 Tikhonov 正则化与空间 TV 一致性约束）；NNLS / OLS / FCLS / NMF 作为对比与消融基线保留。应用背景为食品基质（特别是淀粉类）中聚烯烃微塑料（PE / PP）的拉曼定量解混。早期家族分类基线代码与脚本已整体归档到 `archive/legacy_classification/`，作为历史参照保留。
 
 ## 主线一句话
 
-> 以 `NNLS` 为主线方法，在已知端元条件下开展拉曼光谱有监督解混，并以 `CLS/OLS`、`FCLS` 和盲解混方法 `NMF` 作为对比；通过合成真值数据验证丰度恢复精度，通过真实拉曼面扫数据验证解混结果的重构能力、空间一致性和泛化能力。
+> 以 `PRISM`（Physics-Regularized Iterative Spectral Mixing）为主线方法，在已知端元条件下开展拉曼光谱有监督解混；以经典 `NNLS / CLS-OLS / FCLS` 和盲解混 `NMF` 作为对比与消融基线。通过合成真值数据验证丰度恢复精度，通过真实拉曼面扫数据验证解混结果的重构能力、空间一致性、物理可解释性（absent_load 假阳性）和泛化能力。**应用背景为食品基质（特别是淀粉类）中聚烯烃微塑料（PE / PP）的拉曼定量解混**。
 
 ## 当前进展（2026-05-08）
 
@@ -34,18 +34,33 @@
 - 重构能力上 ALS+L2 与 ALS+max 持平（R² 0.923 平手），显著优于 none+L2（R² 0.784，差 18%）——证实 ALS 基线校正的必要性
 - max 归一化在指纹峰相对强度保留上更高（保留率 0.49 vs 0.08），但这是**光谱可视化**用途，对**线性解混**并非核心指标
 
+### 论点③ — PRISM 进一步降低假阳性 + 空间一致性
+
+在 NNLS 已经满足"非负 + 经典物理解释"的基础上，**PRISM** 通过波段加权 + L2 Tikhonov + 空间 TV anchor 三项物理正则进一步压制噪声与歧义偏置：
+
+- **真实数据 spatial_TV ↓ 41~65%**：3 个真实样本（PE+淀粉 / PP+淀粉 / 三组分 test）一致改善
+- **真实数据 max 假阳性 ↓ 19~54%**：PP+淀粉 样本下"不应有 PE"的 max 丰度从 11.75% 降到 9.52%
+- **真实数据 假阳性灾难消除**：PP+淀粉 样本中假预测含 PE > 10% 的像素比例从 NNLS 的 0.13% 降到 PRISM 的 **0.0%**
+- **重构 RMSE 完美持平 NNLS**：PRISM 不以"拟合谱"为代价换空间一致性
+- **合成数据 MAE ↓ 14%**：合成 NOISY 40×40 上 MAE 从 0.0515 降到 0.0441，Pearson r 升 39%
+- **NNLS 是 PRISM 的退化形式**：`weight_mode="uniform", λ_L2=0, tv_iters=0` 时 PRISM ≡ NNLS
+
+完整方法说明、参数扫描、加权策略（uniform vs endmember_std）消融见 [`docs/prism_method.md`](docs/prism_method.md)。PRISM 实验产物在 `outputs/experiments/prism_*`。
+
 ### 故事线（PPT / 论文按这条讲）
 
 ```
-1. 任务：PE/PP/淀粉 三组分拉曼面扫像素级解混
+1. 任务：食品基质（淀粉）中聚烯烃微塑料（PE/PP）三组分拉曼面扫像素级解混
    ↓
-2. 预处理选 ALS+L2  ←  论点② 数学规范 + 重构不输 + 文献依据
+2. 预处理选 ALS+L2     ←  论点② 数学规范 + 重构不输 + 文献依据
    ↓
-3. 解混选 NNLS      ←  论点① OLS 物理性差、NMF 端元乱、FCLS 接近但 NNLS 简洁稀疏
+3. 解混经典对比定基线  ←  论点① OLS 物理性差、NMF 端元乱、FCLS ≈ NNLS 选 NNLS
    ↓
-4. 实测效果         ←  v6/v9/v12（单图丰度 + 合成真值精度 + 跨淀粉源泛化）
+4. 解混升级到 PRISM    ←  论点③ 假阳性 frac>10% 从 0.13% 降到 0%、spatial_TV 降 41~65%
    ↓
-5. 承下             ←  NNLS 输出作为后续 NNLS+深度学习的物理先验
+5. 实测效果            ←  v6/v9/v12 + prism_quick_check / real_check / abundance_viz
+   ↓
+6. 承下                ←  PRISM 输出作为后续 PRISM + 深度学习的物理先验
 ```
 
 完整论证统稿（含每张图的读图说明 / 物理含义 / 关键数字 / 论文写作 checklist）见 [`docs/thesis_chapter1_figures.md`](docs/thesis_chapter1_figures.md)。
@@ -115,13 +130,20 @@ Unmixing/
 | 端元指纹峰可视化 | `experiments/run_endmember_fingerprint_plot.py` | `outputs/experiments/formal_v15_endmember_fingerprint/` |
 | 方法约束诊断（OLS 负值率 / NMF 端元 SAM / NNLS 稀疏度） | `experiments/run_method_constraint_diagnostics.py` | `outputs/experiments/formal_v13_method_constraint_diagnostics/` |
 | 协议一致性（CV + 指纹峰保留） | `experiments/run_protocol_consistency_analysis.py` | `outputs/experiments/formal_v14_protocol_consistency/` |
+| **PRISM 合成快速验证** | `experiments/run_prism_quick_check.py` | `outputs/experiments/prism_quick_check*/` |
+| **PRISM 真实样本对比** | `experiments/run_prism_real_check.py` | `outputs/experiments/prism_real_check/` |
+| **PRISM 丰度图可视化** | `experiments/run_prism_abundance_viz.py` | `outputs/experiments/prism_abundance_viz*/` |
+| **PRISM 超参网格扫描** | `experiments/run_prism_param_sweep.py` | `outputs/experiments/prism_param_sweep/` |
+| **PRISM absent_load 物理一致性** | `experiments/run_prism_absent_check.py` | `outputs/experiments/prism_absent_check/` |
+| **PRISM 加权策略消融（STD vs UNI）** | `experiments/run_prism_synth_std_vs_uni.py` | `outputs/experiments/prism_synth_std_vs_uni/` |
 
-详细说明见 [docs/nnls_unmixing_flow.md](docs/nnls_unmixing_flow.md)。
+详细说明见 [docs/nnls_unmixing_flow.md](docs/nnls_unmixing_flow.md)（经典解混主线）与 [docs/prism_method.md](docs/prism_method.md)（PRISM 方法）。
 
 ## 核心模块速查
 
 - 端元加载与协议化预处理：`preprocessing/endmembers.py`、`preprocessing/preprocess.py`
-- 经典解混（OLS / NNLS / FCLS / NMF）：`unmixing/unmix.py`
+- **主线方法 PRISM**（加权 NNLS + L2 Tikhonov + 空间 TV）：`unmixing/unmix.py::prism_unmix_spectra`
+- 经典对比基线（OLS / NNLS / FCLS / NMF）：`unmixing/unmix.py`
 - 合成真值数据生成：`synthetic/generator.py` + `synthetic/generate_dataset.py`
 - 解混可视化（丰度热图 / 残差 / 重构 / 方法对比 / 协议对比 / 指纹峰）：`visualization/`（顶层 re-export 14 个绘图函数）
 
@@ -132,7 +154,7 @@ Unmixing/
 ```python
 from preprocessing import preprocess, endmembers
 from synthetic.generator import generate_synthetic_map
-from unmixing.unmix import unmix_spectra, blind_nmf_unmix_spectra
+from unmixing import prism_unmix_spectra, unmix_spectra, blind_nmf_unmix_spectra  # 顶层 re-export
 from utils.io import save_predictions, save_experiment_summary
 from visualization import plot_abundance_maps, plot_residual_map  # 顶层 re-export
 ```
