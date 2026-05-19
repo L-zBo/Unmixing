@@ -249,3 +249,175 @@ def align_blind_nmf_to_reference(
         columns=reference_library.names,
     )
     return aligned, similarity_df
+
+
+@dataclass(frozen=True)
+class PrismUnmixingResult:
+    component_names: tuple[str, ...]
+    method: str
+    coefficients: np.ndarray
+    abundances: np.ndarray
+    reconstructed: np.ndarray
+    residual_l2: np.ndarray
+    residual_rmse: np.ndarray
+    residual_r2: np.ndarray
+    config: dict
+
+    def to_frame(self) -> pd.DataFrame:
+        rows: list[dict[str, float | int | str]] = []
+        for index in range(self.coefficients.shape[0]):
+            row: dict[str, float | int | str] = {
+                "spectrum_index": index,
+                "method": self.method,
+                "residual_l2": float(self.residual_l2[index]),
+                "residual_rmse": float(self.residual_rmse[index]),
+                "residual_r2": float(self.residual_r2[index]),
+            }
+            for component_index, name in enumerate(self.component_names):
+                row[f"coef_{name}"] = float(self.coefficients[index, component_index])
+                row[f"abundance_{name}"] = float(self.abundances[index, component_index])
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+
+def _prism_band_weights(matrix: np.ndarray, mode: str) -> np.ndarray:
+    """Per-band weight emphasising discriminative bands across endmembers."""
+    if mode == "endmember_std":
+        w = matrix.std(axis=1)
+        w = w / (w.max() + 1e-12) + 0.1
+        return w.astype(np.float32)
+    if mode == "uniform":
+        return np.ones(matrix.shape[0], dtype=np.float32)
+    raise ValueError(f"Unknown weight_mode={mode!r}. Expected 'endmember_std' or 'uniform'.")
+
+
+def _solve_weighted_l2_nnls(
+    spectra: np.ndarray,
+    matrix: np.ndarray,
+    weights_sqrt: np.ndarray,
+    lambda_l2: float,
+) -> np.ndarray:
+    """Per-pixel min ||W^{1/2}(Aw - y)||^2 + lambda||w||^2 s.t. w >= 0."""
+    n_endmembers = matrix.shape[1]
+    a_weighted = matrix * weights_sqrt[:, None]
+    sqrt_lambda = float(np.sqrt(max(lambda_l2, 0.0)))
+    a_aug = np.vstack([a_weighted, sqrt_lambda * np.eye(n_endmembers, dtype=np.float32)]).astype(np.float64)
+    coefs = np.zeros((spectra.shape[0], n_endmembers), dtype=np.float32)
+    zeros_k = np.zeros(n_endmembers, dtype=np.float64)
+    for i, y in enumerate(spectra):
+        y_aug = np.concatenate([(y * weights_sqrt).astype(np.float64), zeros_k])
+        w, _ = nnls(a_aug, y_aug)
+        coefs[i] = w.astype(np.float32)
+    return coefs
+
+
+def _solve_weighted_l2_nnls_with_anchor(
+    spectra: np.ndarray,
+    matrix: np.ndarray,
+    weights_sqrt: np.ndarray,
+    lambda_l2: float,
+    anchor: np.ndarray,
+    lambda_anchor: float,
+) -> np.ndarray:
+    """Per-pixel min ||W^{1/2}(Aw - y)||^2 + l_L2||w||^2 + l_a||w - a||^2 s.t. w >= 0."""
+    n_endmembers = matrix.shape[1]
+    a_weighted = matrix * weights_sqrt[:, None]
+    sqrt_lambda_l2 = float(np.sqrt(max(lambda_l2, 0.0)))
+    sqrt_lambda_a = float(np.sqrt(max(lambda_anchor, 0.0)))
+    a_aug = np.vstack(
+        [
+            a_weighted,
+            sqrt_lambda_l2 * np.eye(n_endmembers, dtype=np.float32),
+            sqrt_lambda_a * np.eye(n_endmembers, dtype=np.float32),
+        ]
+    ).astype(np.float64)
+    coefs = np.zeros((spectra.shape[0], n_endmembers), dtype=np.float32)
+    zeros_k = np.zeros(n_endmembers, dtype=np.float64)
+    for i in range(spectra.shape[0]):
+        y_w = (spectra[i] * weights_sqrt).astype(np.float64)
+        y_aug = np.concatenate([y_w, zeros_k, sqrt_lambda_a * anchor[i].astype(np.float64)])
+        w, _ = nnls(a_aug, y_aug)
+        coefs[i] = w.astype(np.float32)
+    return coefs
+
+
+def prism_unmix_spectra(
+    spectra: np.ndarray,
+    library: EndmemberLibrary,
+    *,
+    image_shape: tuple[int, int] | None = None,
+    lambda_l2: float = 1e-4,
+    weight_mode: Literal["endmember_std", "uniform"] = "endmember_std",
+    lambda_tv: float = 0.02,
+    tv_iters: int = 2,
+    lambda_anchor_scale: float = 5.0,
+) -> PrismUnmixingResult:
+    """PRISM = weighted L2 NNLS + optional spatial TV-anchor iteration.
+
+    Outputs:
+        PrismUnmixingResult — row-normalised abundances and reconstructed spectra,
+        with config dict capturing the hyperparameters used.
+    """
+    spectra = _ensure_2d_spectra(spectra)
+    if spectra.shape[1] != library.n_points:
+        raise ValueError(f"Spectra length {spectra.shape[1]} does not match library length {library.n_points}.")
+    matrix = np.asarray(library.matrix, dtype=np.float32)
+    n_pixels, _ = spectra.shape
+    n_endmembers = matrix.shape[1]
+
+    weights = _prism_band_weights(matrix, weight_mode)
+    weights_sqrt = np.sqrt(weights).astype(np.float32)
+
+    coefficients = _solve_weighted_l2_nnls(
+        spectra=spectra,
+        matrix=matrix,
+        weights_sqrt=weights_sqrt,
+        lambda_l2=lambda_l2,
+    )
+
+    if image_shape is not None and tv_iters > 0 and lambda_tv > 0:
+        from skimage.restoration import denoise_tv_chambolle
+
+        height, width = image_shape
+        if height * width != n_pixels:
+            raise ValueError(f"image_shape={image_shape} -> {height*width} pixels, expected {n_pixels}.")
+        lambda_anchor = lambda_tv * lambda_anchor_scale
+        for _ in range(tv_iters):
+            coef_map = coefficients.reshape(height, width, n_endmembers).astype(np.float64, copy=False)
+            anchor_map = np.empty_like(coef_map)
+            for k in range(n_endmembers):
+                anchor_map[..., k] = denoise_tv_chambolle(coef_map[..., k], weight=lambda_tv, channel_axis=None)
+            anchor_flat = anchor_map.reshape(n_pixels, n_endmembers).astype(np.float32)
+            coefficients = _solve_weighted_l2_nnls_with_anchor(
+                spectra=spectra,
+                matrix=matrix,
+                weights_sqrt=weights_sqrt,
+                lambda_l2=lambda_l2,
+                anchor=anchor_flat,
+                lambda_anchor=lambda_anchor,
+            )
+
+    reconstructed = (coefficients @ matrix.T).astype(np.float32)
+    residual = spectra - reconstructed
+    residual_l2 = np.linalg.norm(residual, axis=1).astype(np.float32)
+    residual_rmse = np.sqrt(np.mean(residual * residual, axis=1)).astype(np.float32)
+    residual_r2 = _compute_r2(spectra, reconstructed).astype(np.float32)
+    abundances = _normalize_coefficients(coefficients)
+    return PrismUnmixingResult(
+        component_names=library.names,
+        method="prism",
+        coefficients=coefficients,
+        abundances=abundances,
+        reconstructed=reconstructed,
+        residual_l2=residual_l2,
+        residual_rmse=residual_rmse,
+        residual_r2=residual_r2,
+        config={
+            "lambda_l2": float(lambda_l2),
+            "weight_mode": weight_mode,
+            "lambda_tv": float(lambda_tv),
+            "tv_iters": int(tv_iters),
+            "image_shape": image_shape,
+            "lambda_anchor_scale": float(lambda_anchor_scale),
+        },
+    )
