@@ -1,6 +1,6 @@
-# NNLS 解混项目代码落实说明（主线）
+# 解混项目代码落实说明（PRISM 主线 + 经典对比基线）
 
-> 本文档是项目当前主线方法 NNLS 经典解混的统一落地口径。仓库已切换到「按职责扁平铺开」的结构，主线代码分布在 `preprocessing/` `synthetic/` `unmixing/` `visualization/` `experiments/` `utils/` 六个顶层目录；早期分类路线见 [`legacy_classification_flow.md`](legacy_classification_flow.md)，对应代码与脚本整体归档到 `archive/legacy_classification/`。
+> 本文档是项目当前主线方法 **PRISM**（Physics-Regularized Iterative Spectral Mixing，在 NNLS 基础上引入波段加权、L2 Tikhonov 正则化与空间 TV 一致性约束）的统一落地口径。**NNLS 同时是 PRISM 的退化形式**（`weight_mode="uniform", λ_L2=0, tv_iters=0`），并与 `CLS/OLS / FCLS / NMF / MCR-ALS` 一起构成对比基线。仓库已切换到「按职责扁平铺开」的结构，主线代码分布在 `preprocessing/` `synthetic/` `unmixing/` `visualization/` `experiments/` `utils/` 六个顶层目录；早期分类路线见 [`legacy_classification_flow.md`](legacy_classification_flow.md)，对应代码与脚本整体归档到 `archive/legacy_classification/`；PRISM 方法的完整数学公式 / 参数扫描 / 加权策略消融见 [`prism_method.md`](prism_method.md)。
 
 ## 1.本文档的定位
 
@@ -8,10 +8,11 @@
 
 当前结论如下：
 
-- 项目主线方法：`NNLS`
-- 有监督对比方法：`CLS/OLS`、`FCLS`
+- 项目主线方法：`PRISM`（NNLS + 波段加权 + L2 Tikhonov + 空间 TV anchor 迭代）
+- NNLS 退化基线：`NNLS`（即 PRISM 在 `weight_mode=uniform, λ_L2=0, tv_iters=0` 时的退化）
+- 有监督对比方法：`CLS/OLS`、`FCLS`、`MCR-ALS`（端元锁死 = NNLS；半盲 = 端元漂移灾难的反向证据）
 - 盲解混对比方法：`NMF`
-- 后续扩展方向：`盲端元提取 + NNLS丰度反演`
+- 后续扩展方向：`PRISM + 深度学习`（PRISM 输出作为深度方法的物理先验，本仓库不实现深度方法本身）
 - 数据原则：原始`dataset/`只读，不覆盖、不移动、不提交到远程仓库
 
 ## 2.当前数据集理解
@@ -65,26 +66,28 @@
 
 所以后续代码和实验记录里，必须把“丰度图”和“标签图”分开，不允许混着叫。
 
-## 4.为什么以NNLS为主线
+## 4.为什么以PRISM为主线（NNLS 是其退化形式）
 
-`NNLS`是当前项目最合适的主线方法，原因如下：
+`PRISM` 是当前项目最合适的主线方法，理由如下：
 
-- 它直接适配“已知端元谱库”的拉曼解混场景
-- 丰度非负，符合物理意义
-- 可解释性强，便于为后续`NNLS+深度学习`铺垫
-- 能自然与`CLS/OLS`、`FCLS`形成同类对比
+- **物理可解释性**：NNLS 已经满足"非负 + 经典物理解释"，PRISM 在此之上叠加三层物理正则（波段加权 / L2 Tikhonov / 空间 TV），针对拉曼面扫数据的物理先验定制
+- **真实数据假阳性消除**：PRISM 在 PP+淀粉 样本上把假阳性 frac>10% 从 NNLS 的 0.13% 降到 0.0%，spatial_TV ↓ 41~65%，重构 RMSE 完美持平
+- **NNLS 是 PRISM 的退化形式**：`weight_mode="uniform", λ_L2=0, tv_iters=0` 时两者等价，**天然可消融**，论文论证逻辑严密
+- **为后续 `PRISM + 深度学习` 铺垫**：PRISM 输出的物理可解释、空间平滑非负丰度可直接作为深度模型的物理先验或伪标签
 
 同时也要明确边界：
 
-- 标准`NNLS`不是盲解混
-- `NNLS`要求端元矩阵`A`已知
-- 如果端元未知，不能硬说NNLS能独立盲混
+- PRISM 仍然要求端元矩阵 `A` 已知（与 NNLS 一致）
+- PRISM 不修正端元谱本身的测量偏差
+- 端元谱重叠场景下丰度精度提升有限（真实 PE/PP 谱重叠场景 MAE 提升 14%，端元独立场景 36%）
+- TV 平滑 λ_TV 过大会损失小颗粒信号（v1 默认 λ_TV=0.10 是经验上不损失颗粒的上限）
 
 因此本项目的方法定位应当写成：
 
-- `CLS/OLS`、`NNLS`、`FCLS`属于有监督解混
-- `NMF`属于盲解混对比
-- 若后续做半盲流程，可采用“`NMF`估计端元 + `NNLS`估计丰度”
+- `PRISM` 是主线（有监督，已知端元 + 物理正则化）
+- `CLS/OLS`、`NNLS`、`FCLS`、`MCR-ALS（端元锁死）` 属于有监督对比基线
+- `NMF`、`MCR-ALS（半盲）` 属于盲/半盲解混对比，**两者均出现端元漂移问题**，反向证明"已知端元有监督"主线选择正确
+- 若后续做半盲流程，可采用"`NMF` 估计端元 + `PRISM` 估计丰度"（暂留 future work）
 
 ## 5.真值口径必须分层
 
@@ -310,7 +313,7 @@
 
 为了避免后续文档、代码、实验记录互相打架，先统一一句话：
 
-“本项目以`NNLS`为主线方法，在已知端元条件下开展拉曼光谱有监督解混，并以`CLS/OLS`、`FCLS`和盲解混方法`NMF`作为对比；通过合成真值数据验证丰度恢复精度，通过真实拉曼面扫数据验证解混结果的重构能力、空间一致性和泛化能力，为后续`NNLS+深度学习`方法提供基线和物理先验。”
+"本项目以 `PRISM`（Physics-Regularized Iterative Spectral Mixing）为主线方法，在已知端元条件下开展拉曼光谱有监督解混。PRISM 在经典 NNLS 基础上引入波段加权、L2 Tikhonov 正则化与空间 TV-Chambolle 一致性约束；NNLS 同时是 PRISM 的退化形式（`weight_mode=uniform, λ_L2=0, tv_iters=0`）。与 `CLS/OLS / FCLS / MCR-ALS / NMF` 一起构成对比基线，通过合成真值数据验证丰度恢复精度，通过真实拉曼面扫数据验证解混结果的重构能力、空间一致性、物理可解释性（absent_load 假阳性）和泛化能力，为后续 `PRISM + 深度学习` 方法提供物理先验。"
 
 这句话后面谁再乱改，就属于自己给自己挖坑。
 
@@ -464,17 +467,18 @@
 
 ### 13.3解混主线
 
-解混方法的主线保持不变：
+解混方法的主线（2026-05-20 升级）：
 
-- 默认解混主线：`NNLS`
-- 同类监督对比：`CLS/OLS`、`FCLS`
-- 盲解混对比：`NMF`
+- 默认解混主线：`PRISM`（NNLS + 波段加权 + L2 Tikhonov + 空间 TV）
+- 退化基线：`NNLS`（PRISM 在 `weight_mode=uniform, λ_L2=0, tv_iters=0` 时的退化形式）
+- 经典监督对比：`CLS/OLS`、`FCLS`、`MCR-ALS（端元锁死）`
+- 盲/半盲对比：`NMF`、`MCR-ALS（半盲）`
 
-这里的核心口径不是“谁重构误差最小就盲目选谁”，而是：
+这里的核心口径不是"谁重构误差最小就盲目选谁"，而是：
 
-- `NNLS`在已知端元条件下更符合物理约束
-- `NNLS`输出非负丰度，更容易解释
-- 选择`NNLS`是为了突出解混结果的可解释性，而不是只追求一个黑箱指标
+- `PRISM` 在 `NNLS` 物理可解释性基础上进一步压制噪声 / 假阳性，符合"非负 + 物理先验"双重约束
+- `NMF` 与半盲 `MCR-ALS` 都出现端元漂移问题，重构 R² 看似最高但丰度跟真值零相关——反向证明"已知端元有监督"主线选择正确
+- 选择 `PRISM` 是为了突出解混结果的可解释性 + 真实数据假阳性可控，而不是只追求一个黑箱指标
 
 ### 13.4后续代码落实要求
 
@@ -504,5 +508,51 @@
 
 当前还需要继续补强的重点：
 
-- 合成真值评估指标还需要进一步校准，特别是“归一化后丰度真值”的解释口径
+- 合成真值评估指标还需要进一步校准，特别是"归一化后丰度真值"的解释口径
 - 预处理对比目前先在真实数据上跑通，后续还要扩展到更多样本和更多协议
+
+## 15.2026-05-20 PRISM 主线升级补记
+
+在以上 NNLS 时代基础上，本仓库主线已升级为 **PRISM**（Physics-Regularized Iterative Spectral Mixing）。本节是最新进展，与第 4 / 10 / 13.3 节同时生效；前文 v6~v15 实验脚本与产物**仍然有效**作为 PRISM 的对比基线。
+
+### 15.1新增主线方法 PRISM
+
+- `unmixing/unmix.py::prism_unmix_spectra` — PRISM 主实现（加权 NNLS + L2 Tikhonov + 空间 TV anchor 迭代）
+- `unmixing/__init__.py` — 顶层 re-export `prism_unmix_spectra` / `PrismUnmixingResult`
+- v1 默认超参：`weight_mode="uniform", λ_L2=1e-2, λ_TV=0.10, tv_iters=2, λ_anchor_scale=5.0`
+- 完整方法说明、参数扫描与加权策略消融见 [`prism_method.md`](prism_method.md)
+
+### 15.2新增对比方法 MCR-ALS（拉曼社区事实标准）
+
+- `unmixing/unmix.py::mcr_als_unmix_spectra` — 基于 `pymcr` 0.5.1 实现，支持 hard-constrained（端元锁死，等价 NNLS）与 semi-blind（端元 init 但允许微调）两种模式
+- 关键发现：semi-blind MCR-ALS 在 PE/PP 谱重叠场景下端元漂移导致 Pearson r ≈ -0.015 灾难，反向证明"已知端元有监督"主线选择正确
+
+### 15.3新增 PRISM 实验脚本（6 个）
+
+- `experiments/run_prism_quick_check.py` — 合成数据快速验证
+- `experiments/run_prism_abundance_viz.py` — 丰度图对比可视化
+- `experiments/run_prism_param_sweep.py` — 34 配置超参网格扫描
+- `experiments/run_prism_real_check.py` — 3 个真实样本对比
+- `experiments/run_prism_absent_check.py` — absent_load 物理一致性测试（"不应有 PE" 的假阳性率）
+- `experiments/run_prism_synth_std_vs_uni.py` — 加权策略消融
+- `experiments/run_mcr_als_check.py` — MCR-ALS hard / semi-blind 对比
+
+### 15.4新增 PRISM 实验产物目录
+
+- `outputs/experiments/prism_quick_check*/` / `prism_abundance_viz*/` / `prism_param_sweep/` / `prism_real_check/` / `prism_absent_check/` / `prism_synth_std_vs_uni/`
+- `outputs/experiments/mcr_als_check_formal_v1/`
+
+### 15.5新增文档
+
+- `docs/prism_method.md` — PRISM 完整方法说明（数学公式 + 参数扫描 + 加权策略消融 + limitation）
+- `docs/thesis_abstract.md` — 论文摘要演进草稿（中 200/300 + 英 215 + 数字事实源 + WP-2/3/5 待回填清单）
+- `论证总览.md` § 2 已扩为 **三个核心论点**（论点③ = PRISM 进一步降假阳性 + 空间一致性）
+
+### 15.6 PRISM 关键数字（论证用）
+
+- 真实数据 spatial_TV ↓ 41~65%
+- 真实 PP+淀粉 假阳性 frac > 10%：**0.13% → 0.0%**（彻底消除）
+- 重构 RMSE 持平 NNLS（0.0072 vs 0.0070）
+- 合成 NOISY 40×40 MAE ↓ 14%（0.0515 → 0.0441），Pearson r ↑ 39%
+
+完整数字事实源见 [`thesis_abstract.md`](thesis_abstract.md) § 5。
