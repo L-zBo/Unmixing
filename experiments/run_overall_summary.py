@@ -38,8 +38,14 @@ V14_R2 = SHOWCASE / "protocol_consistency/protocol_reconstruction_r2_summary.csv
 V14_CONSISTENCY = SHOWCASE / "protocol_consistency/protocol_consistency_summary.csv"
 V14_RETENTION = SHOWCASE / "protocol_consistency/fingerprint_retention_summary.csv"
 
+MCR_CHECK_FORMAL_V1 = ROOT / "outputs/experiments/mcr_als_check_formal_v1/mcr_als_check_summary.csv"
+PRISM_REAL_CHECK = ROOT / "outputs/experiments/prism_real_check"
+PRISM_ABSENT_CHECK = ROOT / "outputs/experiments/prism_absent_check/prism_absent_check_summary.csv"
+
 DEMIX_OUT = SHOWCASE / "method_comparison/method_overall_summary.csv"
 PREPROC_OUT = SHOWCASE / "protocol_consistency/preprocessing_overall_summary.csv"
+SEVEN_METHOD_OUT = SHOWCASE / "method_comparison/seven_method_synth_summary.csv"
+PRISM_REAL_SUMMARY_OUT = SHOWCASE / "method_comparison/prism_real_cross_sample.csv"
 
 METHOD_ORDER = ("ols", "nnls", "fcls", "nmf")
 PROTOCOL_ORDER = ("als_l2", "als_max", "none_l2")
@@ -142,6 +148,105 @@ def build_demixing_summary() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def build_seven_method_synthetic_summary() -> pd.DataFrame:
+    """7-method horizontal comparison on synthetic NOISY 40×40 from mcr_als_check_formal_v1.
+
+    Methods (column order): OLS / NNLS / FCLS / NMF / MCR-ALS hard / MCR-ALS semi-blind / PRISM.
+    MCR-ALS hard-sum1 and hard-nnls are mathematically equivalent to NNLS in this setup;
+    we keep one row (sum1) for clarity.
+    """
+    if not MCR_CHECK_FORMAL_V1.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(MCR_CHECK_FORMAL_V1, encoding="utf-8-sig")
+    rename_map = {
+        "mcr_als_hard_sum1": "MCR-ALS-hard",
+        "prism_full_wL2_TV": "PRISM",
+        "mcr_als_semi_blind": "MCR-ALS-semi",
+        "ols": "OLS", "nnls": "NNLS", "fcls": "FCLS", "nmf": "NMF",
+    }
+    df = df[df["method"] != "mcr_als_hard_nnls"].copy()
+    df["method_display"] = df["method"].map(lambda x: rename_map.get(x, x))
+    method_order = ["OLS", "NNLS", "FCLS", "NMF", "MCR-ALS-hard", "MCR-ALS-semi", "PRISM"]
+    df = df.set_index("method_display").reindex(method_order)
+
+    metric_specs = [
+        ("MAE ↓", "mae", "lower"),
+        ("RMSE ↓", "rmse", "lower"),
+        ("Pearson r ↑", "pearson_r", "higher"),
+        ("recon_RMSE", "recon_rmse", "neutral"),
+        ("spatial_TV ↓", "spatial_tv", "lower"),
+        ("mean_active_endmembers", "mean_active_endmembers", "neutral"),
+        ("elapsed_s", "elapsed_s", "neutral"),
+    ]
+    rows = []
+    for display, col, direction in metric_specs:
+        row = {"metric": display, "direction": direction}
+        values = {}
+        for m in method_order:
+            v = float(df.loc[m, col]) if m in df.index and pd.notna(df.loc[m, col]) else np.nan
+            row[m] = round(v, 4) if not np.isnan(v) else np.nan
+            if not np.isnan(v):
+                values[m] = v
+        if direction == "lower" and values:
+            best = min(values, key=values.get)
+            row["best_method"] = best
+        elif direction == "higher" and values:
+            best = max(values, key=values.get)
+            row["best_method"] = best
+        else:
+            row["best_method"] = ""
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def build_prism_real_summary() -> pd.DataFrame:
+    """PRISM vs NNLS cross-sample summary on 3 real samples, with absent-load false positives.
+
+    real_check csv uses {NNLS, PRISM_OLD/MID/AGG}; we keep NNLS + PRISM_MID (v1 default).
+    absent_check csv splits STD/UNI variants; we keep NNLS + PRISM_MID_UNI (v1 default).
+    """
+    real_csv = ROOT / "outputs/experiments/prism_real_check/prism_real_check_summary.csv"
+    absent_csv = PRISM_ABSENT_CHECK
+
+    rows: list[dict] = []
+
+    if real_csv.exists():
+        df = pd.read_csv(real_csv, encoding="utf-8-sig")
+        df = df[df["method"].isin({"NNLS", "PRISM_MID"})].copy()
+        for _, r in df.iterrows():
+            rows.append({
+                "scenario": "real_sample",
+                "sample": str(r.get("sample", "")),
+                "method": str(r.get("method", "")),
+                "recon_rmse": round(float(r.get("recon_rmse", np.nan)), 5),
+                "spatial_tv": round(float(r.get("spatial_tv", np.nan)), 5),
+                "mean_active_endmembers": round(float(r.get("mean_active", np.nan)), 3),
+                "negative_fraction": round(float(r.get("negative_fraction", np.nan)), 5),
+            })
+
+    if absent_csv.exists():
+        df = pd.read_csv(absent_csv, encoding="utf-8-sig")
+        df = df[df["method"].isin({"NNLS", "PRISM_MID_UNI"})].copy()
+        for _, r in df.iterrows():
+            sample = str(r.get("sample", ""))
+            for absent in ("PE", "PP"):
+                max_col = f"max_abundance_{absent}_absent"
+                mean_col = f"mean_abundance_{absent}_absent"
+                frac_col = f"fraction_pixels_{absent}_over_0.10"
+                if max_col in df.columns and pd.notna(r.get(max_col)):
+                    rows.append({
+                        "scenario": "absent_load",
+                        "sample": sample,
+                        "method": str(r.get("method", "")),
+                        "absent_endmember": absent,
+                        "max_abundance_absent": round(float(r[max_col]), 4),
+                        "mean_abundance_absent": round(float(r[mean_col]), 4),
+                        "frac_pixels_absent_over_10pct": round(float(r[frac_col]), 5),
+                    })
+
+    return pd.DataFrame(rows)
+
+
 def build_preprocessing_summary() -> pd.DataFrame:
     out: dict[str, dict[str, float]] = {p: {} for p in PROTOCOL_ORDER}
 
@@ -202,11 +307,25 @@ def main() -> None:
 
     df_demix = build_demixing_summary()
     df_demix.to_csv(DEMIX_OUT, index=False)
-    print(f"[OK] Demixing overall summary:      {DEMIX_OUT} ({len(df_demix)} rows)")
+    print(f"[OK] Demixing 4-method overall summary:  {DEMIX_OUT} ({len(df_demix)} rows)")
 
     df_pre = build_preprocessing_summary()
     df_pre.to_csv(PREPROC_OUT, index=False)
-    print(f"[OK] Preprocessing overall summary: {PREPROC_OUT} ({len(df_pre)} rows)")
+    print(f"[OK] Preprocessing overall summary:      {PREPROC_OUT} ({len(df_pre)} rows)")
+
+    df_seven = build_seven_method_synthetic_summary()
+    if not df_seven.empty:
+        df_seven.to_csv(SEVEN_METHOD_OUT, index=False)
+        print(f"[OK] 7-method synthetic summary (NOISY): {SEVEN_METHOD_OUT} ({len(df_seven)} rows)")
+    else:
+        print(f"[SKIP] 7-method summary: source csv not found ({MCR_CHECK_FORMAL_V1})")
+
+    df_prism_real = build_prism_real_summary()
+    if not df_prism_real.empty:
+        df_prism_real.to_csv(PRISM_REAL_SUMMARY_OUT, index=False)
+        print(f"[OK] PRISM real cross-sample summary:    {PRISM_REAL_SUMMARY_OUT} ({len(df_prism_real)} rows)")
+    else:
+        print(f"[SKIP] PRISM real summary: source not found")
 
 
 if __name__ == "__main__":
