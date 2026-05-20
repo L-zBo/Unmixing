@@ -280,6 +280,36 @@ class PrismUnmixingResult:
         return pd.DataFrame(rows)
 
 
+def _endmember_pairwise_sam(matrix: np.ndarray) -> tuple[float, list[float]]:
+    """Mean and per-pair SAM (rad) across all distinct endmember pairs."""
+    A = matrix.astype(np.float64)
+    n_endmembers = A.shape[1]
+    pairs: list[float] = []
+    for i in range(n_endmembers):
+        for j in range(i + 1, n_endmembers):
+            denom = float(np.linalg.norm(A[:, i]) * np.linalg.norm(A[:, j]))
+            if denom < 1e-12:
+                pairs.append(0.0)
+                continue
+            cos = float(np.clip(np.dot(A[:, i], A[:, j]) / denom, -1.0, 1.0))
+            pairs.append(float(np.arccos(cos)))
+    mean_sam = float(np.mean(pairs)) if pairs else 0.0
+    return mean_sam, pairs
+
+
+def _auto_select_weight_mode(matrix: np.ndarray, threshold_rad: float = 1.05) -> tuple[str, float]:
+    """Pick uniform when mean pairwise SAM < threshold (conservative), else endmember_std.
+
+    Note: 1.05 rad (~60 deg) is intentionally conservative — endmember_std requires both
+    truly orthogonal endmembers AND clean fingerprint-difference bands; real Raman data
+    typically fails the second condition due to baseline bias on endmember spectra,
+    so auto defaults to uniform for typical Raman libraries (PE/PP/starch mean SAM ~0.85).
+    """
+    mean_sam, _ = _endmember_pairwise_sam(matrix)
+    mode = "uniform" if mean_sam < threshold_rad else "endmember_std"
+    return mode, mean_sam
+
+
 def _prism_band_weights(matrix: np.ndarray, mode: str) -> np.ndarray:
     """Per-band weight emphasising discriminative bands across endmembers."""
     if mode == "endmember_std":
@@ -288,7 +318,7 @@ def _prism_band_weights(matrix: np.ndarray, mode: str) -> np.ndarray:
         return w.astype(np.float32)
     if mode == "uniform":
         return np.ones(matrix.shape[0], dtype=np.float32)
-    raise ValueError(f"Unknown weight_mode={mode!r}. Expected 'endmember_std' or 'uniform'.")
+    raise ValueError(f"Unknown weight_mode={mode!r}. Expected 'endmember_std', 'uniform', or 'auto'.")
 
 
 def _solve_weighted_l2_nnls(
@@ -347,7 +377,8 @@ def prism_unmix_spectra(
     *,
     image_shape: tuple[int, int] | None = None,
     lambda_l2: float = 1e-2,
-    weight_mode: Literal["endmember_std", "uniform"] = "uniform",
+    weight_mode: Literal["endmember_std", "uniform", "auto"] = "uniform",
+    auto_sam_threshold: float = 1.05,
     lambda_tv: float = 0.10,
     tv_iters: int = 2,
     lambda_anchor_scale: float = 5.0,
@@ -356,7 +387,8 @@ def prism_unmix_spectra(
 
     Outputs:
         PrismUnmixingResult — row-normalised abundances and reconstructed spectra,
-        with config dict capturing the hyperparameters used.
+        with config dict capturing the hyperparameters used (including resolved
+        weight_mode and endmember mean SAM when weight_mode='auto').
     """
     spectra = _ensure_2d_spectra(spectra)
     if spectra.shape[1] != library.n_points:
@@ -364,6 +396,11 @@ def prism_unmix_spectra(
     matrix = np.asarray(library.matrix, dtype=np.float32)
     n_pixels, _ = spectra.shape
     n_endmembers = matrix.shape[1]
+
+    weight_mode_input = weight_mode
+    endmember_mean_sam, _ = _endmember_pairwise_sam(matrix)
+    if weight_mode == "auto":
+        weight_mode, _ = _auto_select_weight_mode(matrix, threshold_rad=auto_sam_threshold)
 
     weights = _prism_band_weights(matrix, weight_mode)
     weights_sqrt = np.sqrt(weights).astype(np.float32)
@@ -415,9 +452,149 @@ def prism_unmix_spectra(
         config={
             "lambda_l2": float(lambda_l2),
             "weight_mode": weight_mode,
+            "weight_mode_input": weight_mode_input,
+            "endmember_mean_sam_rad": float(endmember_mean_sam),
+            "auto_sam_threshold": float(auto_sam_threshold),
             "lambda_tv": float(lambda_tv),
             "tv_iters": int(tv_iters),
             "image_shape": image_shape,
             "lambda_anchor_scale": float(lambda_anchor_scale),
         },
     )
+
+
+@dataclass(frozen=True)
+class McrAlsResult:
+    component_names: tuple[str, ...]
+    method: str
+    coefficients: np.ndarray
+    abundances: np.ndarray
+    reconstructed: np.ndarray
+    residual_l2: np.ndarray
+    residual_rmse: np.ndarray
+    residual_r2: np.ndarray
+    n_iter: int
+    config: dict
+
+    def to_frame(self) -> pd.DataFrame:
+        rows: list[dict[str, float | int | str]] = []
+        for index in range(self.coefficients.shape[0]):
+            row: dict[str, float | int | str] = {
+                "spectrum_index": index,
+                "method": self.method,
+                "residual_l2": float(self.residual_l2[index]),
+                "residual_rmse": float(self.residual_rmse[index]),
+                "residual_r2": float(self.residual_r2[index]),
+            }
+            for component_index, name in enumerate(self.component_names):
+                row[f"coef_{name}"] = float(self.coefficients[index, component_index])
+                row[f"abundance_{name}"] = float(self.abundances[index, component_index])
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+
+def mcr_als_unmix_spectra(
+    spectra: np.ndarray,
+    library: EndmemberLibrary,
+    *,
+    fix_endmembers: bool = True,
+    sum_to_one: bool = True,
+    max_iter: int = 100,
+    tol_increase: float = 0.0,
+    tol_n_increase: int = 10,
+    tol_err_change: float = 1e-10,
+) -> McrAlsResult:
+    """MCR-ALS unmixing with endmember library either hard-locked or used as init only.
+
+    Outputs:
+        McrAlsResult — row-normalised abundances + reconstructed spectra; n_iter is
+        actual iterations run; config records fix_endmembers / sum_to_one / tolerances;
+        when fix_endmembers=False, the optimised ST is exposed via config["st_opt"].
+    """
+    from pymcr.mcr import McrAR
+    from pymcr.regressors import NNLS as PymcrNNLS
+    from pymcr.constraints import ConstraintNonneg, ConstraintNorm
+
+    spectra = _ensure_2d_spectra(spectra)
+    if spectra.shape[1] != library.n_points:
+        raise ValueError(f"Spectra length {spectra.shape[1]} does not match library length {library.n_points}.")
+
+    matrix = np.asarray(library.matrix, dtype=np.float64)
+    n_endmembers = matrix.shape[1]
+    spectra_d = spectra.astype(np.float64)
+
+    st_init = matrix.T.copy()
+    c_init = np.zeros((spectra_d.shape[0], n_endmembers), dtype=np.float64)
+    for i in range(spectra_d.shape[0]):
+        c_init[i], _ = nnls(matrix, spectra_d[i])
+
+    c_constraints = [ConstraintNonneg()]
+    if sum_to_one:
+        c_constraints.append(ConstraintNorm())
+
+    mcrar = McrAR(
+        max_iter=max_iter,
+        st_regr=PymcrNNLS(),
+        c_regr=PymcrNNLS(),
+        c_constraints=c_constraints,
+        st_constraints=[ConstraintNonneg()],
+        tol_increase=tol_increase,
+        tol_n_increase=tol_n_increase,
+        tol_err_change=tol_err_change,
+    )
+    st_fix = list(range(n_endmembers)) if fix_endmembers else []
+    mcrar.fit(
+        spectra_d,
+        C=c_init,
+        ST=st_init,
+        st_fix=st_fix,
+        c_fix=[],
+        c_first=True,
+        verbose=False,
+    )
+
+    coefficients = mcrar.C_opt_.astype(np.float32)
+    st_opt = mcrar.ST_opt_.astype(np.float32)
+    reconstructed = (coefficients @ st_opt).astype(np.float32)
+    residual = spectra - reconstructed
+    residual_l2 = np.linalg.norm(residual, axis=1).astype(np.float32)
+    residual_rmse = np.sqrt(np.mean(residual * residual, axis=1)).astype(np.float32)
+    residual_r2 = _compute_r2(spectra, reconstructed).astype(np.float32)
+    abundances = _normalize_coefficients(coefficients)
+    return McrAlsResult(
+        component_names=library.names,
+        method="mcr_als" if fix_endmembers else "mcr_als_semi_blind",
+        coefficients=coefficients,
+        abundances=abundances,
+        reconstructed=reconstructed,
+        residual_l2=residual_l2,
+        residual_rmse=residual_rmse,
+        residual_r2=residual_r2,
+        n_iter=int(getattr(mcrar, "n_iter", -1)),
+        config={
+            "fix_endmembers": bool(fix_endmembers),
+            "sum_to_one": bool(sum_to_one),
+            "max_iter": int(max_iter),
+            "tol_increase": float(tol_increase),
+            "tol_n_increase": int(tol_n_increase),
+            "tol_err_change": float(tol_err_change),
+            "st_fix": "all" if fix_endmembers else "none",
+            "c_first": True,
+            "st_opt_drift_sam_rad": _endmember_drift_sam(matrix.T, st_opt),
+        },
+    )
+
+
+def _endmember_drift_sam(st_init: np.ndarray, st_opt: np.ndarray) -> list[float]:
+    """Per-endmember SAM (rad) between init and optimised ST; 0 = locked."""
+    drifts: list[float] = []
+    for k in range(st_init.shape[0]):
+        a = st_init[k].astype(np.float64)
+        b = st_opt[k].astype(np.float64)
+        denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+        if denom < 1e-12:
+            drifts.append(0.0)
+            continue
+        cos = float(np.clip(np.dot(a, b) / denom, -1.0, 1.0))
+        drifts.append(float(np.arccos(cos)))
+    return drifts
