@@ -11,8 +11,9 @@
 当前主线是：
 
 - 预处理主线：`ALS + L2`
-- 解混主线：`NNLS`
-- 对比方法：`CLS/OLS`、`FCLS`、`NMF`
+- 解混主线：`PRISM`（Physics-Regularized Iterative Spectral Mixing；NNLS + 波段加权 + L2 Tikhonov + 空间 TV）
+- 退化基线：`NNLS`（PRISM 在 `weight_mode=uniform, λ_L2=0, tv_iters=0` 时的退化形式）
+- 经典对比：`CLS/OLS`、`FCLS`、`MCR-ALS`、`NMF`
 
 所以放进这里的代码，不代表“没价值”，而是代表：
 

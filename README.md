@@ -76,6 +76,8 @@ Unmixing/
 ├── docs/                      # 详细路线说明
 │   ├── nnls_unmixing_flow.md  # 主线：NNLS 解混落地说明
 │   ├── legacy_classification_flow.md  # 旧路线：家族分类 + 组级空间评估
+│   ├── prism_method.md        # PRISM 方法完整说明（数学公式 + 参数扫描 + 加权消融）
+│   ├── thesis_abstract.md     # 论文摘要草稿（中文 200/300 字 + 英文 + 关键词）
 │   └── thesis_chapter1_figures.md  # 论证统稿（200~400 字读图说明 + 论文写作 checklist）
 ├── preprocessing/             # 端元加载、协议化预处理（als_l2/als_max/none_l2）
 │   ├── endmembers.py
